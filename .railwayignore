@@ -1,0 +1,20 @@
+# Keep the upload to Railway small — mirrors .dockerignore.
+.git
+**/node_modules
+**/dist
+**/.angular
+**/.tanstack
+server/data
+server/uploads
+**/*.log
+**/.env
+.env
+.DS_Store
+**/.DS_Store
+Archive.zip
+
+# Dead / unrelated code (not part of the deployable app).
+alphaq-web
+backend
+docs
+skills

@@ -149,29 +149,7 @@ INSERT INTO users (phone, name, email, password_hash, role, reward_points, creat
   ('919573976462', 'AlphaQ Admin', '', '$2a$10$Wv.4pbQVpjuRonAQTzFMX.bNsn/t.a2ZAAEvOzCPG3mKDYvwy1txC', 'admin', 0, 1758240000000)
 ON DUPLICATE KEY UPDATE phone = phone;
 
-INSERT INTO games (title, platform, tags, active, sort_order) VALUES
-  ('Valorant', '["PC"]', '["Competitive","FPS"]', 1, 0),
-  ('Counter-Strike 2', '["PC"]', '["Competitive","FPS"]', 1, 1),
-  ('Dota 2', '["PC"]', '["MOBA","Multiplayer"]', 1, 2),
-  ('GTA V', '["PC"]', '["Open world","Casual"]', 1, 3),
-  ('EA FC 25', '["PS5"]', '["Sports","Couch"]', 1, 4),
-  ('Mortal Kombat 1', '["PS5"]', '["Fighting","Couch"]', 1, 5);
-
-INSERT INTO food (name, category, price, image, active, sort_order) VALUES
-  ('Cold coffee', 'Drinks', 90, '', 1, 0),
-  ('Energy cooler', 'Drinks', 70, '', 1, 1),
-  ('Peri-peri fries', 'Snacks', 120, '', 1, 2),
-  ('Loaded nachos', 'Snacks', 150, '', 1, 3),
-  ('Veg maggi bowl', 'Meals', 80, '', 1, 4),
-  ('Alpha combo', 'Combos', 220, '', 1, 5);
-
-INSERT INTO tournaments (game, format, date, prize, status, description, capacity, created_at) VALUES
-  ('Valorant', '5v5 · Best of 3', 'Sat, 27 Sep', '₹10,000 pool', 'open', 'Squad up and climb the bracket for the AlphaQ crown.', 16, 1758240000000),
-  ('Counter-Strike 2', '5v5 · Single elim', 'Sun, 12 Oct', '₹8,000 pool', 'soon', 'Registration opens soon — get your team ready.', 16, 1758240000000);
-
-INSERT INTO reviews (name, handle, rating, body, verified, approved, created_at) VALUES
-  ('Rohit K.', '@rohitfrags', 5, 'Best rigs in Indore, hands down. Ping is unreal and the place is spotless.', 1, 1, 1758240000000),
-  ('Aisha M.', '@aishaplays', 5, 'Booked the PS5 lounge for four of us. Comfortable couch, great TV, fun night.', 1, 1, 1758240000000),
-  ('Dev P.', '@dev_valo', 4, 'Food to your seat is such a nice touch. Day pass is great value for a full grind.', 1, 1, 1758240000000);
+-- No sample content (games / food / tournaments / reviews) — the admin adds
+-- real data through the in-app admin screens after deploy.
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -404,72 +404,8 @@ async function seed() {
     console.log(`Seeded admin: phone ${adminPhone} / password "admin123" (change it!)`);
   }
 
-  if (Number((await db.get("SELECT COUNT(*) c FROM games")).c) === 0) {
-    const games = [
-      ["Valorant", ["PC"], ["Competitive", "FPS"]],
-      ["Counter-Strike 2", ["PC"], ["Competitive", "FPS"]],
-      ["Dota 2", ["PC"], ["MOBA", "Multiplayer"]],
-      ["GTA V", ["PC"], ["Open world", "Casual"]],
-      ["EA FC 25", ["PS5"], ["Sports", "Couch"]],
-      ["Mortal Kombat 1", ["PS5"], ["Fighting", "Couch"]],
-    ];
-    for (let i = 0; i < games.length; i++) {
-      const g = games[i];
-      await db.run("INSERT INTO games(title, platform, tags, active, sort_order) VALUES(?,?,?,1,?)", [
-        g[0],
-        JSON.stringify(g[1]),
-        JSON.stringify(g[2]),
-        i,
-      ]);
-    }
-  }
-
-  if (Number((await db.get("SELECT COUNT(*) c FROM food")).c) === 0) {
-    const food = [
-      ["Cold coffee", "Drinks", 90],
-      ["Energy cooler", "Drinks", 70],
-      ["Peri-peri fries", "Snacks", 120],
-      ["Loaded nachos", "Snacks", 150],
-      ["Veg maggi bowl", "Meals", 80],
-      ["Alpha combo", "Combos", 220],
-    ];
-    for (let i = 0; i < food.length; i++) {
-      const f = food[i];
-      await db.run("INSERT INTO food(name, category, price, active, sort_order) VALUES(?,?,?,1,?)", [
-        f[0],
-        f[1],
-        f[2],
-        i,
-      ]);
-    }
-  }
-
-  if (Number((await db.get("SELECT COUNT(*) c FROM tournaments")).c) === 0) {
-    const t = [
-      ["Valorant", "5v5 · Best of 3", "Sat, 27 Sep", "₹10,000 pool", "open", "Squad up and climb the bracket for the AlphaQ crown.", 16],
-      ["Counter-Strike 2", "5v5 · Single elim", "Sun, 12 Oct", "₹8,000 pool", "soon", "Registration opens soon — get your team ready.", 16],
-    ];
-    for (const x of t) {
-      await db.run(
-        "INSERT INTO tournaments(game, format, date, prize, status, description, capacity, created_at) VALUES(?,?,?,?,?,?,?,?)",
-        [x[0], x[1], x[2], x[3], x[4], x[5], x[6], now()],
-      );
-    }
-  }
-
-  if (Number((await db.get("SELECT COUNT(*) c FROM reviews")).c) === 0) {
-    const r = [
-      ["Rohit K.", "@rohitfrags", 5, "Best rigs in Indore, hands down. Ping is unreal and the place is spotless."],
-      ["Aisha M.", "@aishaplays", 5, "Booked the PS5 lounge for four of us. Comfortable couch, great TV, fun night."],
-      ["Dev P.", "@dev_valo", 4, "Food to your seat is such a nice touch. Day pass is great value for a full grind."],
-    ];
-    for (const x of r) {
-      await db.run(
-        "INSERT INTO reviews(name, handle, rating, body, verified, approved, created_at) VALUES(?,?,?,?,1,1,?)",
-        [x[0], x[1], x[2], x[3], now()],
-      );
-    }
-  }
+  // No sample content is seeded — games, food, tournaments and reviews all start
+  // empty. The admin adds real data through the in-app admin screens after deploy.
 }
 
 async function init() {
