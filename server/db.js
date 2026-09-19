@@ -463,7 +463,63 @@ async function waitForDb() {
   }
 }
 
+// Create the target database if it does not exist. Railway's MySQL image only
+// creates the initial database on first boot with an empty volume; if the volume
+// predates the MYSQL_DATABASE setting the DB is missing and every connection
+// fails with ER_BAD_DB_ERROR (which is not transient, so waitForDb gives up
+// immediately). We connect WITHOUT selecting a database, create it if needed,
+// then let the pool connect normally. Retries transient errors so this doubles
+// as the "wait for MySQL to boot" step. Skipped when DATABASE_URL is used (the
+// DB name is embedded there) or on SQLite.
+async function ensureDatabase() {
+  if (db.kind !== "mysql" || process.env.DATABASE_URL) return;
+  const name = process.env.MYSQL_DATABASE || "alphaq";
+  const mysql = require("mysql2/promise");
+
+  const maxRetries = Number(process.env.DB_CONNECT_RETRIES || 12);
+  const baseDelay = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 1000);
+  const maxDelay = Number(process.env.DB_CONNECT_MAX_DELAY_MS || 15000);
+
+  for (let attempt = 1; ; attempt++) {
+    let conn;
+    try {
+      conn = await mysql.createConnection({
+        host: process.env.MYSQL_HOST || "localhost",
+        port: Number(process.env.MYSQL_PORT || 3306),
+        user: process.env.MYSQL_USER || "root",
+        password: process.env.MYSQL_PASSWORD || "",
+        connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT || 10000),
+      });
+      // Backtick-escape the identifier; CREATE DATABASE cannot be parameterized.
+      await conn.query(
+        `CREATE DATABASE IF NOT EXISTS \`${name.replace(/`/g, "``")}\` ` +
+          "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+      );
+      if (attempt > 1) console.log(`MySQL reachable after ${attempt} attempts.`);
+      return;
+    } catch (err) {
+      const code = (err && err.code) || "";
+      const retryable = TRANSIENT_DB_ERRORS.has(code);
+      if (!retryable || attempt >= maxRetries) {
+        throw new Error(
+          `Could not create/verify MySQL database after ${attempt} attempt(s)` +
+            (code ? ` (last error: ${code})` : "") +
+            ". Verify the database service is running and the MYSQL_* variables are set.",
+        );
+      }
+      const delay = Math.min(baseDelay * 2 ** (attempt - 1), maxDelay);
+      console.log(
+        `MySQL not ready yet (${code || "unknown"}); retry ${attempt}/${maxRetries} in ${delay}ms.`,
+      );
+      await sleep(delay);
+    } finally {
+      if (conn) await conn.end().catch(() => {});
+    }
+  }
+}
+
 async function init() {
+  await ensureDatabase();
   await waitForDb();
   await ensureSchema();
   await seed();
