@@ -1,0 +1,504 @@
+// AlphaQ Gaming — database layer.
+//
+// Supports MySQL (for production/server deploys) with automatic SQLite fallback
+// (zero-config local dev). Pick the driver via environment:
+//
+//   DB_CLIENT=mysql            -> MySQL  (or set any MYSQL_* var / DATABASE_URL)
+//   DB_CLIENT=sqlite           -> SQLite (default when nothing is configured)
+//
+// Both drivers expose the SAME async API so the rest of the app never cares:
+//   db.get(sql, params)  -> a single row (or undefined)
+//   db.all(sql, params)  -> an array of rows
+//   db.run(sql, params)  -> { lastInsertRowid, changes }
+//   db.exec(sql)         -> run raw DDL (no params)
+//
+// Call `await init()` once at startup to create tables + seed defaults.
+require("dotenv").config();
+const path = require("path");
+const fs = require("fs");
+const bcrypt = require("bcryptjs");
+
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const explicit = (process.env.DB_CLIENT || "").toLowerCase();
+const USE_MYSQL =
+  explicit === "mysql" ||
+  (explicit !== "sqlite" && (!!process.env.DATABASE_URL || !!process.env.MYSQL_HOST));
+
+/* ------------------------------------------------------------- drivers --- */
+
+function makeMysql() {
+  const mysql = require("mysql2/promise");
+  const pool = process.env.DATABASE_URL
+    ? mysql.createPool(process.env.DATABASE_URL)
+    : mysql.createPool({
+        host: process.env.MYSQL_HOST || "localhost",
+        port: Number(process.env.MYSQL_PORT || 3306),
+        user: process.env.MYSQL_USER || "root",
+        password: process.env.MYSQL_PASSWORD || "",
+        database: process.env.MYSQL_DATABASE || "alphaq",
+        waitForConnections: true,
+        connectionLimit: Number(process.env.MYSQL_POOL || 10),
+        charset: "utf8mb4",
+      });
+  return {
+    kind: "mysql",
+    async get(sql, params = []) {
+      const [rows] = await pool.query(sql, params);
+      return rows[0];
+    },
+    async all(sql, params = []) {
+      const [rows] = await pool.query(sql, params);
+      return rows;
+    },
+    async run(sql, params = []) {
+      const [res] = await pool.query(sql, params);
+      return { lastInsertRowid: res.insertId, changes: res.affectedRows };
+    },
+    async exec(sql) {
+      await pool.query(sql);
+    },
+    async close() {
+      await pool.end();
+    },
+  };
+}
+
+function makeSqlite() {
+  const Database = require("better-sqlite3");
+  const DATA_DIR = path.join(__dirname, "data");
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const file = process.env.SQLITE_PATH || path.join(DATA_DIR, "alphaq.db");
+  const sdb = new Database(file);
+  sdb.pragma("journal_mode = WAL");
+  return {
+    kind: "sqlite",
+    async get(sql, params = []) {
+      return sdb.prepare(sql).get(...params);
+    },
+    async all(sql, params = []) {
+      return sdb.prepare(sql).all(...params);
+    },
+    async run(sql, params = []) {
+      const info = sdb.prepare(sql).run(...params);
+      return { lastInsertRowid: Number(info.lastInsertRowid), changes: info.changes };
+    },
+    async exec(sql) {
+      sdb.exec(sql);
+    },
+    async close() {
+      sdb.close();
+    },
+  };
+}
+
+const db = USE_MYSQL ? makeMysql() : makeSqlite();
+
+/* -------------------------------------------------------------- schema --- */
+
+const SQLITE_SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'customer',
+  reward_points INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  phone TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  date TEXT NOT NULL,
+  slot TEXT NOT NULL,
+  duration_label TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  players INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'awaiting_payment',
+  upi_ref TEXT,
+  decision_reason TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS games (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS food (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS food_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  phone TEXT NOT NULL,
+  booking_id INTEGER NOT NULL,
+  setup_label TEXT NOT NULL,
+  items TEXT NOT NULL,
+  total INTEGER NOT NULL,
+  pay_with TEXT NOT NULL DEFAULT 'counter',
+  status TEXT NOT NULL DEFAULT 'placed',
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS tournaments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  game TEXT NOT NULL,
+  format TEXT NOT NULL,
+  date TEXT NOT NULL,
+  prize TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'soon',
+  description TEXT NOT NULL DEFAULT '',
+  capacity INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS registrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tournament_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  phone TEXT NOT NULL,
+  player_name TEXT NOT NULL,
+  team_name TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  name TEXT NOT NULL,
+  handle TEXT,
+  rating INTEGER NOT NULL DEFAULT 5,
+  body TEXT NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 0,
+  approved INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gallery (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  url TEXT NOT NULL,
+  caption TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rewards_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  delta INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS settings (
+  \`key\` TEXT PRIMARY KEY,
+  \`value\` TEXT NOT NULL
+);
+`;
+
+// MySQL runs one statement per exec() call, so keep them as an array.
+const MYSQL_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phone VARCHAR(20) NOT NULL UNIQUE,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(190),
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'customer',
+    reward_points INT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS bookings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    platform VARCHAR(20) NOT NULL,
+    date VARCHAR(40) NOT NULL,
+    slot VARCHAR(80) NOT NULL,
+    duration_label VARCHAR(120) NOT NULL,
+    price INT NOT NULL,
+    players INT NOT NULL DEFAULT 1,
+    status VARCHAR(30) NOT NULL DEFAULT 'awaiting_payment',
+    upi_ref VARCHAR(120),
+    decision_reason VARCHAR(255),
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS games (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(160) NOT NULL,
+    platform TEXT NOT NULL,
+    tags TEXT NOT NULL,
+    active TINYINT NOT NULL DEFAULT 1,
+    sort_order INT NOT NULL DEFAULT 0
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS food (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(160) NOT NULL,
+    category VARCHAR(80) NOT NULL,
+    price INT NOT NULL,
+    image VARCHAR(255) NOT NULL DEFAULT '',
+    active TINYINT NOT NULL DEFAULT 1,
+    sort_order INT NOT NULL DEFAULT 0
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS food_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    booking_id INT NOT NULL,
+    setup_label VARCHAR(160) NOT NULL,
+    items TEXT NOT NULL,
+    total INT NOT NULL,
+    pay_with VARCHAR(20) NOT NULL DEFAULT 'counter',
+    status VARCHAR(20) NOT NULL DEFAULT 'placed',
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS tournaments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    game VARCHAR(160) NOT NULL,
+    format VARCHAR(120) NOT NULL,
+    date VARCHAR(60) NOT NULL,
+    prize VARCHAR(120) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'soon',
+    description VARCHAR(500) NOT NULL DEFAULT '',
+    capacity INT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS registrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tournament_id INT NOT NULL,
+    user_id INT NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    player_name VARCHAR(120) NOT NULL,
+    team_name VARCHAR(120),
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS reviews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    name VARCHAR(120) NOT NULL,
+    handle VARCHAR(80),
+    rating INT NOT NULL DEFAULT 5,
+    body VARCHAR(1000) NOT NULL,
+    verified TINYINT NOT NULL DEFAULT 0,
+    approved TINYINT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS gallery (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    url VARCHAR(255) NOT NULL,
+    caption VARCHAR(255) NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS rewards_ledger (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    delta INT NOT NULL,
+    reason VARCHAR(190) NOT NULL,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS settings (
+    \`key\` VARCHAR(120) PRIMARY KEY,
+    \`value\` TEXT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+];
+
+async function ensureSchema() {
+  if (db.kind === "sqlite") {
+    await db.exec(SQLITE_SCHEMA);
+    // Legacy migration: `image` column added to food after the first release.
+    try {
+      await db.exec("ALTER TABLE food ADD COLUMN image TEXT NOT NULL DEFAULT ''");
+    } catch {
+      /* column already exists */
+    }
+  } else {
+    for (const stmt of MYSQL_SCHEMA) await db.exec(stmt);
+  }
+}
+
+/* --------------------------------------------------------------- helpers -- */
+
+function now() {
+  return Date.now();
+}
+
+function normalizePhone(input) {
+  let d = String(input || "").replace(/\D/g, "");
+  if (d.length === 10) d = "91" + d;
+  return d;
+}
+
+async function getSetting(key, fallback = "") {
+  const row = await db.get("SELECT `value` FROM settings WHERE `key` = ?", [key]);
+  return row ? row.value : fallback;
+}
+
+async function setSetting(key, value) {
+  const res = await db.run("UPDATE settings SET `value` = ? WHERE `key` = ?", [
+    String(value),
+    key,
+  ]);
+  if (!res.changes) {
+    await db.run("INSERT INTO settings(`key`, `value`) VALUES(?, ?)", [key, String(value)]);
+  }
+}
+
+async function allSettings() {
+  const rows = await db.all("SELECT `key`, `value` FROM settings");
+  const out = {};
+  for (const r of rows) out[r.key] = r.value;
+  return out;
+}
+
+async function addReward(userId, delta, reason) {
+  await db.run("INSERT INTO rewards_ledger(user_id, delta, reason, created_at) VALUES(?,?,?,?)", [
+    userId,
+    delta,
+    reason,
+    now(),
+  ]);
+  await db.run("UPDATE users SET reward_points = reward_points + ? WHERE id = ?", [delta, userId]);
+}
+
+/* ------------------------------------------------------------------ seed -- */
+
+async function seed() {
+  const DEFAULT_SETTINGS = {
+    brandName: "AlphaQ Gaming",
+    whatsapp: "919573976462",
+    phone: "919573976462",
+    email: "hello@alphaq.gg",
+    instagram: "alphaq.gaming",
+    city: "Indore, Madhya Pradesh",
+    hours: "Tue–Sun · 11:00 AM – 8:00 PM",
+    upiId: "alphaq@upi",
+    upiName: "AlphaQ Gaming",
+    appBg: "",
+    pcCount: "10",
+    ps5Count: "3",
+  };
+  for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
+    const exists = await db.get("SELECT 1 FROM settings WHERE `key` = ?", [k]);
+    if (!exists) await setSetting(k, v);
+  }
+
+  // Admin bootstrap
+  const adminPhones = (process.env.ADMIN_PHONES || "9573976462")
+    .split(",")
+    .map(normalizePhone)
+    .filter(Boolean);
+  const adminPhone = adminPhones[0];
+  if (adminPhone && !(await db.get("SELECT 1 FROM users WHERE phone = ?", [adminPhone]))) {
+    const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || "admin123", 10);
+    await db.run(
+      "INSERT INTO users(phone, name, email, password_hash, role, created_at) VALUES(?,?,?,?,?,?)",
+      [adminPhone, "AlphaQ Admin", "", hash, "admin", now()],
+    );
+    console.log(`Seeded admin: phone ${adminPhone} / password "admin123" (change it!)`);
+  }
+
+  if (Number((await db.get("SELECT COUNT(*) c FROM games")).c) === 0) {
+    const games = [
+      ["Valorant", ["PC"], ["Competitive", "FPS"]],
+      ["Counter-Strike 2", ["PC"], ["Competitive", "FPS"]],
+      ["Dota 2", ["PC"], ["MOBA", "Multiplayer"]],
+      ["GTA V", ["PC"], ["Open world", "Casual"]],
+      ["EA FC 25", ["PS5"], ["Sports", "Couch"]],
+      ["Mortal Kombat 1", ["PS5"], ["Fighting", "Couch"]],
+    ];
+    for (let i = 0; i < games.length; i++) {
+      const g = games[i];
+      await db.run("INSERT INTO games(title, platform, tags, active, sort_order) VALUES(?,?,?,1,?)", [
+        g[0],
+        JSON.stringify(g[1]),
+        JSON.stringify(g[2]),
+        i,
+      ]);
+    }
+  }
+
+  if (Number((await db.get("SELECT COUNT(*) c FROM food")).c) === 0) {
+    const food = [
+      ["Cold coffee", "Drinks", 90],
+      ["Energy cooler", "Drinks", 70],
+      ["Peri-peri fries", "Snacks", 120],
+      ["Loaded nachos", "Snacks", 150],
+      ["Veg maggi bowl", "Meals", 80],
+      ["Alpha combo", "Combos", 220],
+    ];
+    for (let i = 0; i < food.length; i++) {
+      const f = food[i];
+      await db.run("INSERT INTO food(name, category, price, active, sort_order) VALUES(?,?,?,1,?)", [
+        f[0],
+        f[1],
+        f[2],
+        i,
+      ]);
+    }
+  }
+
+  if (Number((await db.get("SELECT COUNT(*) c FROM tournaments")).c) === 0) {
+    const t = [
+      ["Valorant", "5v5 · Best of 3", "Sat, 27 Sep", "₹10,000 pool", "open", "Squad up and climb the bracket for the AlphaQ crown.", 16],
+      ["Counter-Strike 2", "5v5 · Single elim", "Sun, 12 Oct", "₹8,000 pool", "soon", "Registration opens soon — get your team ready.", 16],
+    ];
+    for (const x of t) {
+      await db.run(
+        "INSERT INTO tournaments(game, format, date, prize, status, description, capacity, created_at) VALUES(?,?,?,?,?,?,?,?)",
+        [x[0], x[1], x[2], x[3], x[4], x[5], x[6], now()],
+      );
+    }
+  }
+
+  if (Number((await db.get("SELECT COUNT(*) c FROM reviews")).c) === 0) {
+    const r = [
+      ["Rohit K.", "@rohitfrags", 5, "Best rigs in Indore, hands down. Ping is unreal and the place is spotless."],
+      ["Aisha M.", "@aishaplays", 5, "Booked the PS5 lounge for four of us. Comfortable couch, great TV, fun night."],
+      ["Dev P.", "@dev_valo", 4, "Food to your seat is such a nice touch. Day pass is great value for a full grind."],
+    ];
+    for (const x of r) {
+      await db.run(
+        "INSERT INTO reviews(name, handle, rating, body, verified, approved, created_at) VALUES(?,?,?,?,1,1,?)",
+        [x[0], x[1], x[2], x[3], now()],
+      );
+    }
+  }
+}
+
+async function init() {
+  await ensureSchema();
+  await seed();
+  return db.kind;
+}
+
+module.exports = {
+  db,
+  init,
+  now,
+  normalizePhone,
+  getSetting,
+  setSetting,
+  allSettings,
+  addReward,
+  UPLOAD_DIR,
+};
+
+// `node db.js --seed` — set up the database without starting the API.
+if (require.main === module && process.argv.includes("--seed")) {
+  init()
+    .then((kind) => {
+      console.log(`Database ready (${kind}).`);
+      return db.close();
+    })
+    .catch((e) => {
+      console.error("Seed failed:", e);
+      process.exit(1);
+    });
+}

@@ -1,0 +1,63 @@
+<footer class="aq-footer aq-hairline">
+  <div class="container py-5">
+    <div class="row g-4 g-lg-5">
+      <div class="col-lg-4">
+        <a href="#top" class="d-inline-flex align-items-center gap-2 text-decoration-none mb-3">
+          <span class="aq-logo-mark aq-display">AQ</span>
+          <span class="aq-display fs-4 text-white">{{ brand.full }}</span>
+        </a>
+        <p class="aq-lead pe-lg-4">Indore's next-level gaming café. High-end PC &amp; PS5 setups, low-ping internet
+          and a clean, family-friendly arena.</p>
+        <div class="d-flex gap-2 mt-3">
+          <a class="aq-social" [href]="'https://instagram.com/' + brand.instagram" target="_blank" rel="noopener" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+          <a class="aq-social" href="#" aria-label="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+          <a class="aq-social" [href]="'mailto:' + brand.email" aria-label="Email"><i class="bi bi-envelope"></i></a>
+          <a class="aq-social" [href]="'tel:' + brand.phone" aria-label="Phone"><i class="bi bi-telephone"></i></a>
+        </div>
+      </div>
+
+      <div class="col-6 col-lg-2">
+        <h3 class="aq-eyebrow mb-3">Explore</h3>
+        <ul class="list-unstyled d-grid gap-2 m-0">
+          @for (link of links; track link.fragment) {
+            <li><a class="aq-quiet" [href]="'#' + link.fragment">{{ link.label }}</a></li>
+          }
+        </ul>
+      </div>
+
+      <div class="col-6 col-lg-2">
+        <h3 class="aq-eyebrow mb-3">Account</h3>
+        <ul class="list-unstyled d-grid gap-2 m-0">
+          <li><a class="aq-quiet" href="#login">Login</a></li>
+          <li><a class="aq-quiet" href="#pricing">Book a setup</a></li>
+          <li><a class="aq-quiet" href="#food">Order food</a></li>
+          <li><a class="aq-quiet" href="#tournaments">Tournaments</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-4">
+        <h3 class="aq-eyebrow mb-3">Visit us</h3>
+        <ul class="list-unstyled d-grid gap-2 m-0 text-muted-aq">
+          <li><i class="bi bi-geo-alt me-2 text-green"></i>{{ brand.city }}, India</li>
+          <li><i class="bi bi-clock me-2 text-green"></i>{{ brand.hours }}</li>
+          <li><i class="bi bi-calendar-x me-2 text-green"></i>{{ brand.closed }}</li>
+          <li><i class="bi bi-telephone me-2 text-green"></i>{{ brand.phone }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 pt-4 mt-4 aq-hairline">
+      <p class="small text-muted-aq m-0">© {{ year }} {{ brand.full }} · Est. {{ brand.est }} · {{ brand.city }}</p>
+      <p class="small text-muted-aq m-0">
+        <a class="aq-quiet" href="#">Privacy</a> ·
+        <a class="aq-quiet" href="#">Terms</a> ·
+        <a class="aq-quiet" href="#">Refund policy</a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<!-- Floating WhatsApp (blueprint §12: opens the business number; no automated messaging) -->
+<a class="aq-whatsapp" href="#" aria-label="Chat on WhatsApp" title="Chat on WhatsApp">
+  <i class="bi bi-whatsapp"></i>
+</a>

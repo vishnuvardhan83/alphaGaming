@@ -1,0 +1,16 @@
+:host { display: block; }
+
+.aq-auth-wrap {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  max-width: 460px; margin-inline: auto;
+  padding: 2.5rem 1rem;
+}
+.aq-auth-card { width: 100%; }
+
+.aq-logo-mark {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 11px;
+  font-size: 1.05rem; color: #04140b;
+  background: linear-gradient(150deg, var(--aq-green-bright), var(--aq-green-deep));
+}

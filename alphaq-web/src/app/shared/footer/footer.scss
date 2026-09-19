@@ -1,0 +1,30 @@
+:host { display: block; }
+
+.aq-footer { background: linear-gradient(180deg, transparent, rgba(4, 20, 11, .35)); }
+
+.aq-logo-mark {
+  display: inline-grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 11px;
+  font-size: 1.05rem; color: #04140b;
+  background: linear-gradient(150deg, var(--aq-green-bright), var(--aq-green-deep));
+}
+
+.aq-social {
+  display: inline-grid; place-items: center;
+  width: 42px; height: 42px; border-radius: 12px;
+  color: var(--aq-text);
+  border: 1px solid var(--aq-hairline);
+  transition: all .25s ease;
+}
+.aq-social:hover { color: var(--aq-green); border-color: rgba(30, 224, 122, .45); transform: translateY(-2px); }
+
+.aq-whatsapp {
+  position: fixed; right: 18px; bottom: 18px; z-index: 1040;
+  display: grid; place-items: center;
+  width: 54px; height: 54px; border-radius: 50%;
+  font-size: 1.5rem; color: #04140b;
+  background: linear-gradient(150deg, var(--aq-green-bright), var(--aq-green-deep));
+  box-shadow: 0 12px 30px -8px rgba(30, 224, 122, .8);
+  transition: transform .25s ease;
+}
+.aq-whatsapp:hover { transform: scale(1.08); color: #04140b; }

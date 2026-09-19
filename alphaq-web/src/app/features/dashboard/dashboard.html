@@ -1,0 +1,68 @@
+<aq-nav />
+
+<main class="aq-section">
+  <div class="container" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
+      <div>
+        <p class="aq-eyebrow mb-2"><span class="aq-kicker-line me-2 align-middle"></span>Your account</p>
+        <h1 class="aq-display-lg text-white mb-0">Hi, {{ auth.user()?.username }}</h1>
+      </div>
+      <a routerLink="/book" class="btn btn-primary">Book a setup <i class="bi bi-arrow-right ms-1"></i></a>
+    </div>
+
+    @if (error()) { <div class="alert alert-danger py-2 small">{{ error() }}</div> }
+
+    <h2 class="h5 text-white mb-3">My bookings</h2>
+
+    @if (loading()) {
+      <div class="aq-card aq-card--flat p-5 text-center text-muted-aq">
+        <span class="spinner-border spinner-border-sm me-2"></span>Loading your bookings…
+      </div>
+    } @else if (bookings().length === 0) {
+      <div class="aq-card aq-card--flat p-5 text-center">
+        <div class="mb-3" style="font-size:2rem;color:var(--aq-green);"><i class="bi bi-controller"></i></div>
+        <p class="text-muted-aq mb-3">No bookings yet. Ready to play?</p>
+        <a routerLink="/book" class="btn btn-primary">Book your first setup</a>
+      </div>
+    } @else {
+      <div class="d-grid gap-3">
+        @for (b of bookings(); track b.reference) {
+          <div class="aq-card p-4">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+              <div>
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                  <span class="aq-mono-num text-white fw-semibold">{{ b.reference }}</span>
+                  <span class="status" [class]="statusClass(b.status)">{{ label(b.status) }}</span>
+                  @if (b.assignedSetups.length) {
+                    <span class="aq-badge"><i class="bi bi-pin-map me-1"></i>{{ b.assignedSetups.join(', ') }}</span>
+                  }
+                </div>
+                <div class="text-muted-aq small">
+                  {{ b.platform === 'PC' ? 'Gaming PC' : 'PlayStation 5' }} ×{{ b.quantity }}
+                  · {{ b.date }} · {{ b.start }}–{{ b.end }}{{ b.dayPass ? ' (day pass)' : '' }}
+                </div>
+                @if (b.status === 'PENDING_APPROVAL') {
+                  <div class="text-muted-aq small mt-1"><i class="bi bi-hourglass-split me-1 text-green"></i>Awaiting admin approval — you'll be notified.</div>
+                }
+                @if (b.decisionReason) {
+                  <div class="text-muted-aq small mt-1"><i class="bi bi-info-circle me-1"></i>{{ b.decisionReason }}</div>
+                }
+              </div>
+              <div class="text-md-end d-flex flex-md-column align-items-md-end gap-2 justify-content-between">
+                <div class="aq-display text-green fs-4">₹{{ b.totalInr }}</div>
+                @if (canCancel(b)) {
+                  <button class="btn btn-ghost btn-sm" [disabled]="busyRef() === b.reference" (click)="cancel(b)">
+                    @if (busyRef() === b.reference) { <span class="spinner-border spinner-border-sm"></span> }
+                    @else { Cancel }
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</main>
+
+<aq-footer />

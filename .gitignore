@@ -1,0 +1,13 @@
+# dependencies / build
+alphaq-web/node_modules/
+alphaq-web/dist/
+alphaq-web/.angular/
+backend/target/
+# local env & secrets (never commit real keys)
+.env
+**/.env
+!**/.env.example
+**/run-local.sh
+# os / editor
+.DS_Store
+*.log

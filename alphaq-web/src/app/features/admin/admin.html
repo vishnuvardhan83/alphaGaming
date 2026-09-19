@@ -1,0 +1,131 @@
+<aq-nav />
+
+<main class="aq-section">
+  <div class="container" style="max-width: 1000px;">
+    <p class="aq-eyebrow mb-2"><span class="aq-kicker-line me-2 align-middle"></span>Operations</p>
+    <h1 class="aq-display-lg text-white mb-4">Admin console</h1>
+
+    <!-- Tabs -->
+    <div class="d-flex gap-2 mb-4">
+      <button class="aq-chip" [class.aq-chip--active]="tab() === 'bookings'" (click)="switchTab('bookings')">
+        <i class="bi bi-calendar-check me-1"></i>Bookings
+      </button>
+      <button class="aq-chip" [class.aq-chip--active]="tab() === 'setups'" (click)="switchTab('setups')">
+        <i class="bi bi-pc-display me-1"></i>Setups
+      </button>
+    </div>
+
+    @if (error()) { <div class="alert alert-danger py-2 small">{{ error() }}</div> }
+
+    <!-- ══ BOOKINGS ══ -->
+    @if (tab() === 'bookings') {
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <label class="text-muted-aq small">Status</label>
+        <select class="form-select w-auto" [(ngModel)]="statusFilter" (ngModelChange)="loadBookings()">
+          @for (s of statuses; track s) { <option [value]="s">{{ label(s) }}</option> }
+        </select>
+        <button class="btn btn-ghost btn-sm" (click)="loadBookings()"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+
+      @if (loadingBookings()) {
+        <div class="aq-card aq-card--flat p-5 text-center text-muted-aq">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+        </div>
+      } @else if (bookings().length === 0) {
+        <div class="aq-card aq-card--flat p-5 text-center text-muted-aq">No bookings in this view.</div>
+      } @else {
+        <div class="d-grid gap-3">
+          @for (b of bookings(); track b.reference) {
+            <div class="aq-card p-4">
+              <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+                <div>
+                  <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <span class="aq-mono-num text-white fw-semibold">{{ b.reference }}</span>
+                    <span class="status" [class]="statusClass(b.status)">{{ label(b.status) }}</span>
+                    <span class="text-muted-aq small">by {{ b.username }}</span>
+                  </div>
+                  <div class="text-muted-aq small">
+                    {{ b.platform === 'PC' ? 'Gaming PC' : 'PlayStation 5' }} ×{{ b.quantity }}
+                    · {{ b.date }} · {{ b.start }}–{{ b.end }}{{ b.dayPass ? ' (day pass)' : '' }}
+                    · ₹{{ b.totalInr }}
+                  </div>
+                  @if (b.assignedSetups.length) {
+                    <div class="mt-1"><span class="aq-badge"><i class="bi bi-pin-map me-1"></i>{{ b.assignedSetups.join(', ') }}</span></div>
+                  }
+                  @if (b.decisionReason) { <div class="text-muted-aq small mt-1"><i class="bi bi-info-circle me-1"></i>{{ b.decisionReason }} <span class="opacity-75">— {{ b.decidedBy }}</span></div> }
+                </div>
+
+                @if (b.status === 'PENDING_APPROVAL') {
+                  <div class="d-flex gap-2 align-items-start">
+                    <button class="btn btn-primary btn-sm" (click)="openApprove(b)">Approve</button>
+                    <button class="btn btn-ghost btn-sm" (click)="openReject(b)">Reject</button>
+                  </div>
+                }
+              </div>
+
+              <!-- Approve panel: pick setups -->
+              @if (expandedRef() === b.reference) {
+                <div class="aq-approve mt-3 pt-3">
+                  <div class="small text-muted-aq mb-2">Assign {{ b.quantity }} {{ b.platform }} setup(s)
+                    — selected {{ selected().size }}/{{ b.quantity }}</div>
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    @for (code of assignable(); track code) {
+                      <button type="button" class="aq-chip" [class.aq-chip--active]="isSelected(code)"
+                              (click)="toggleSetup(code, b.quantity)">{{ code }}</button>
+                    } @empty {
+                      <span class="text-muted-aq small">No free setups for this slot.</span>
+                    }
+                  </div>
+                  <button class="btn btn-primary btn-sm" [disabled]="selected().size !== b.quantity || busyRef() === b.reference"
+                          (click)="confirmApprove(b)">
+                    @if (busyRef() === b.reference) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Confirm &amp; assign
+                  </button>
+                </div>
+              }
+
+              <!-- Reject panel -->
+              @if (rejectingRef() === b.reference) {
+                <div class="aq-approve mt-3 pt-3">
+                  <input class="form-control mb-2" [(ngModel)]="rejectReason" placeholder="Reason (optional) — shown to the customer">
+                  <button class="btn btn-primary btn-sm" [disabled]="busyRef() === b.reference" (click)="confirmReject(b)">
+                    @if (busyRef() === b.reference) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    Confirm rejection
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ══ SETUPS ══ -->
+    @if (tab() === 'setups') {
+      @if (loadingSetups()) {
+        <div class="aq-card aq-card--flat p-5 text-center text-muted-aq">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading setups…
+        </div>
+      } @else {
+        <div class="row g-3">
+          @for (s of setups(); track s.code) {
+            <div class="col-6 col-md-4 col-lg-3">
+              <div class="aq-card p-3 d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="text-white fw-semibold aq-mono-num">{{ s.code }}</span>
+                  <span class="status" [class.status--available]="s.status === 'AVAILABLE'" [class.status--full]="s.status === 'MAINTENANCE'">
+                    {{ s.status === 'AVAILABLE' ? 'available' : 'maintenance' }}
+                  </span>
+                </div>
+                <button class="btn btn-ghost btn-sm" [disabled]="busySetup() === s.code" (click)="toggleMaintenance(s)">
+                  @if (busySetup() === s.code) { <span class="spinner-border spinner-border-sm"></span> }
+                  @else { {{ s.status === 'MAINTENANCE' ? 'Set available' : 'Set maintenance' }} }
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</main>

@@ -1,0 +1,254 @@
+/* ============================================================================
+   AlphaQ Gaming — Global design system
+   Dark near-black canvas + electric metallic green accent (approved identity).
+   Bootstrap 5 is the foundation; custom SCSS is intentionally small and scoped
+   to brand surfaces / gaming effects that Bootstrap cannot reasonably provide.
+   ========================================================================== */
+
+/* Icons (CSS @import must precede the Sass module system) */
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+/* ---- Brand tokens (also mirrored to CSS custom properties below) ---------- */
+$aq-black:        #06090b;
+$aq-panel:        #0c1114;
+$aq-green:        #1ee07a; // primary electric green
+$aq-green-deep:   #0fb866;
+$aq-green-bright: #6bffab;
+$aq-text:         #e9f2ec;
+$aq-muted:        #8ba095;
+
+/* ---- Bootstrap variable overrides (before the import) --------------------- */
+$primary:        $aq-green;
+$secondary:      #223129;
+$dark:           $aq-black;
+$body-bg:        $aq-black;
+$body-color:     $aq-text;
+$body-secondary-color: $aq-muted;
+
+$font-family-sans-serif: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+$headings-font-family:   'Inter', system-ui, sans-serif;
+
+$border-radius:      .65rem;
+$border-radius-sm:   .45rem;
+$border-radius-lg:   1rem;
+$border-radius-xl:   1.5rem;
+
+$enable-negative-margins: true;
+$min-contrast-ratio: 2.2; // green primary → dark button text
+
+$link-color:            $aq-green;
+$link-hover-color:      $aq-green-bright;
+
+/* Dark theme surface tuning */
+$dark-bg-subtle:   $aq-panel;
+
+@import 'bootstrap/scss/bootstrap';
+
+/* ---- CSS custom properties (used by components) --------------------------- */
+:root {
+  --aq-black: #{$aq-black};
+  --aq-panel: #{$aq-panel};
+  --aq-green: #{$aq-green};
+  --aq-green-deep: #{$aq-green-deep};
+  --aq-green-bright: #{$aq-green-bright};
+  --aq-text: #{$aq-text};
+  --aq-muted: #{$aq-muted};
+  --aq-hairline: rgba(255, 255, 255, .08);
+  --aq-glass: rgba(18, 26, 22, .55);
+  --aq-nav-h: 76px;
+}
+
+/* ---- Base ----------------------------------------------------------------- */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+body {
+  background-color: var(--aq-black);
+  background-image:
+    radial-gradient(1100px 620px at 78% -8%, rgba(30, 224, 122, .18), transparent 60%),
+    radial-gradient(760px 520px at 8% 4%, rgba(15, 184, 102, .08), transparent 55%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+::selection { background: rgba(30, 224, 122, .28); color: #fff; }
+
+:focus-visible {
+  outline: 2px solid var(--aq-green);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Thin, on-brand scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #1a2620; border-radius: 20px; }
+::-webkit-scrollbar-thumb:hover { background: #24362c; }
+
+/* ---- Typography — tall condensed display face for the gaming voice -------- */
+.aq-display {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: .92;
+  letter-spacing: .5px;
+}
+.aq-display-xl {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: .9;
+  letter-spacing: .5px;
+  font-size: clamp(2.9rem, 8.5vw, 6.4rem);
+}
+.aq-display-lg {
+  font-family: 'Oswald', 'Inter', sans-serif;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: .95;
+  letter-spacing: .5px;
+  font-size: clamp(2.1rem, 5vw, 3.6rem);
+}
+
+.aq-eyebrow {
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--aq-muted);
+}
+.aq-eyebrow .aq-brace { color: var(--aq-green); }
+
+.aq-lead { color: var(--aq-muted); font-size: 1.06rem; line-height: 1.65; }
+
+.text-green { color: var(--aq-green) !important; }
+.text-muted-aq { color: var(--aq-muted) !important; }
+
+/* ---- Layout helpers ------------------------------------------------------- */
+.aq-section {
+  position: relative;
+  padding-block: clamp(3.5rem, 7vw, 6.5rem);
+}
+.aq-hairline { border-top: 1px solid var(--aq-hairline); }
+
+/* ---- Glass / gaming surfaces ---------------------------------------------- */
+.aq-card {
+  background: linear-gradient(180deg, rgba(20, 28, 24, .72), rgba(10, 15, 13, .72));
+  border: 1px solid var(--aq-hairline);
+  border-radius: var(--bs-border-radius-lg);
+  backdrop-filter: blur(10px);
+  transition: transform .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+.aq-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(30, 224, 122, .38);
+  box-shadow: 0 18px 50px -24px rgba(30, 224, 122, .55);
+}
+.aq-card--flat:hover { transform: none; box-shadow: none; }
+
+.aq-glass {
+  background: var(--aq-glass);
+  border: 1px solid var(--aq-hairline);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+
+/* Featured / accent card (e.g. day pass, best value) */
+.aq-card--accent {
+  border-color: rgba(30, 224, 122, .45);
+  box-shadow: 0 0 0 1px rgba(30, 224, 122, .12), 0 24px 60px -30px rgba(30, 224, 122, .6);
+}
+
+/* ---- Buttons -------------------------------------------------------------- */
+.btn { font-weight: 600; letter-spacing: .01em; border-radius: 999px; padding-inline: 1.35rem; }
+.btn-lg { padding-block: .7rem; }
+
+.btn-primary {
+  --bs-btn-color: #04140b;
+  --bs-btn-bg: var(--aq-green);
+  --bs-btn-border-color: var(--aq-green);
+  --bs-btn-hover-color: #04140b;
+  --bs-btn-hover-bg: var(--aq-green-bright);
+  --bs-btn-hover-border-color: var(--aq-green-bright);
+  --bs-btn-active-bg: var(--aq-green-bright);
+  box-shadow: 0 12px 34px -14px rgba(30, 224, 122, .8);
+}
+
+.btn-outline-light {
+  --bs-btn-border-color: rgba(255, 255, 255, .28);
+  --bs-btn-hover-bg: rgba(255, 255, 255, .06);
+  --bs-btn-hover-border-color: rgba(255, 255, 255, .5);
+  --bs-btn-color: var(--aq-text);
+}
+
+.btn-ghost {
+  --bs-btn-color: var(--aq-text);
+  border: 1px solid var(--aq-hairline);
+  background: rgba(255, 255, 255, .02);
+}
+.btn-ghost:hover { border-color: rgba(30, 224, 122, .45); color: #fff; }
+
+/* ---- Badges / pills ------------------------------------------------------- */
+.aq-badge {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: .74rem; font-weight: 600; letter-spacing: .04em;
+  padding: .3rem .7rem; border-radius: 999px;
+  border: 1px solid var(--aq-hairline); color: var(--aq-muted);
+  text-transform: uppercase;
+}
+.aq-badge--live { color: var(--aq-green); border-color: rgba(30, 224, 122, .4); }
+.aq-dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--aq-green); box-shadow: 0 0 0 0 rgba(30, 224, 122, .7); animation: aq-pulse 2.2s infinite; }
+@keyframes aq-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(30, 224, 122, .55); }
+  70% { box-shadow: 0 0 0 8px rgba(30, 224, 122, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(30, 224, 122, 0); }
+}
+
+/* Status badges (booking states – reused across app later) */
+.status { font-size: .72rem; font-weight: 600; padding: .25rem .6rem; border-radius: 999px; border: 1px solid transparent; }
+.status--available { color: var(--aq-green); background: rgba(30, 224, 122, .12); border-color: rgba(30, 224, 122, .3); }
+.status--full { color: #ff8a8a; background: rgba(255, 138, 138, .1); border-color: rgba(255, 138, 138, .3); }
+.status--soon { color: #ffd479; background: rgba(255, 212, 121, .1); border-color: rgba(255, 212, 121, .3); }
+
+/* ---- Utility -------------------------------------------------------------- */
+.aq-kicker-line { width: 2rem; height: 2px; background: var(--aq-green); display: inline-block; }
+.aq-mono-num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+a.aq-quiet { color: var(--aq-muted); text-decoration: none; transition: color .2s; }
+a.aq-quiet:hover { color: var(--aq-text); }
+.aq-grid-line { background-image: linear-gradient(var(--aq-hairline) 1px, transparent 1px), linear-gradient(90deg, var(--aq-hairline) 1px, transparent 1px); background-size: 46px 46px; }
+
+/* ---- Forms (dark, brand-tinted) ------------------------------------------- */
+.form-label { font-size: .85rem; font-weight: 600; color: var(--aq-text); margin-bottom: .35rem; }
+.form-control, .form-select {
+  background-color: rgba(255, 255, 255, .03);
+  border: 1px solid var(--aq-hairline);
+  color: var(--aq-text);
+  border-radius: .6rem;
+  padding: .65rem .85rem;
+}
+.form-control::placeholder { color: rgba(139, 160, 149, .6); }
+.form-control:focus, .form-select:focus {
+  background-color: rgba(255, 255, 255, .04);
+  border-color: rgba(30, 224, 122, .55);
+  box-shadow: 0 0 0 .2rem rgba(30, 224, 122, .18);
+  color: var(--aq-text);
+}
+.form-control.is-invalid { border-color: #ff8a8a; }
+.input-group-text {
+  background: rgba(255,255,255,.03); border: 1px solid var(--aq-hairline);
+  color: var(--aq-muted); border-radius: .6rem;
+}
+.aq-field-error { color: #ff9d9d; font-size: .8rem; margin-top: .3rem; }
+.aq-approve { border-top: 1px solid var(--aq-hairline); }
+.aq-step { color: var(--aq-muted); font-weight: 600; }
+.aq-step--on { color: var(--aq-green); }
+.alert-success { background: rgba(30,224,122,.1); border-color: rgba(30,224,122,.3); color: var(--aq-green-bright); }
+.alert-danger { background: rgba(255,138,138,.1); border-color: rgba(255,138,138,.3); color: #ffb3b3; }
+
+/* ---- Scroll reveal (aqReveal directive) ----------------------------------- */
+.aq-reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s ease; will-change: opacity, transform; }
+.aq-reveal.is-revealed { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .aq-reveal { opacity: 1; transform: none; transition: none; }
+}

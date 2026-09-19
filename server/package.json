@@ -1,0 +1,23 @@
+{
+  "name": "alphaq-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "AlphaQ Gaming backend — Express + MySQL (SQLite fallback): normal login, bookings, UPI approval, rewards, reviews.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "seed": "node db.js --seed",
+    "db": "node inspect.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.24.4"
+  }
+}

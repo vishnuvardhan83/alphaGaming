@@ -1,0 +1,26 @@
+# Self-contained local MySQL for AlphaQ Gaming dev.
+# Host port 3307 avoids clashing with any MySQL already on 3306.
+# Credentials are dev-only and match backend/application.yml defaults.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: alphaq-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root_dev_pw
+      MYSQL_DATABASE: alphaq_gaming
+      MYSQL_USER: alphaq
+      MYSQL_PASSWORD: alphaq_dev_pw
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - alphaq_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "alphaq", "-palphaq_dev_pw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  alphaq_mysql_data:

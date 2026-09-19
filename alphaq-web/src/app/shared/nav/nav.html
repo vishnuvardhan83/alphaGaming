@@ -1,0 +1,72 @@
+<!-- Live availability strip (blueprint §03) -->
+<div class="aq-strip w-100 border-bottom" style="border-color: var(--aq-hairline) !important;">
+  <div class="container d-flex align-items-center justify-content-between py-1 small">
+    <span class="d-inline-flex align-items-center gap-2 text-muted-aq">
+      <span class="aq-dot"></span>
+      <span class="aq-mono-num">
+        <strong class="text-green">{{ strip.pcAvailable() }}</strong> of {{ strip.pcTotal() }} PCs
+        &nbsp;·&nbsp;
+        <strong class="text-green">{{ strip.ps5Available() }}</strong> of {{ strip.ps5Total() }} PS5s available
+      </span>
+    </span>
+    <span class="d-none d-sm-inline text-muted-aq">Open until 8 PM · {{ brand.city }}</span>
+  </div>
+</div>
+
+<header class="aq-nav" [class.aq-nav--solid]="scrolled() || menuOpen()">
+  <nav class="container d-flex align-items-center justify-content-between" aria-label="Primary">
+    <a href="#top" class="aq-logo d-inline-flex align-items-center gap-2 text-decoration-none" (click)="closeMenu()">
+      <span class="aq-logo-mark aq-display">AQ</span>
+      <span class="aq-logo-word aq-display fs-5 text-white">{{ brand.name }}</span>
+    </a>
+
+    <!-- Desktop links -->
+    <ul class="aq-links d-none d-lg-flex align-items-center gap-4 list-unstyled m-0">
+      @for (link of links; track link.fragment) {
+        <li><a class="aq-quiet fw-medium" [href]="'#' + link.fragment">{{ link.label }}</a></li>
+      }
+    </ul>
+
+    <div class="d-flex align-items-center gap-2">
+      @if (auth.isLoggedIn()) {
+        @if (isAdmin()) {
+          <a routerLink="/admin" class="btn btn-ghost btn-sm d-none d-md-inline-flex"><i class="bi bi-speedometer2 me-1"></i>Admin</a>
+        }
+        <a routerLink="/dashboard" class="btn btn-ghost btn-sm d-none d-sm-inline-flex">
+          <i class="bi bi-person-circle me-1"></i>{{ auth.user()?.username }}
+        </a>
+        <button type="button" class="btn btn-ghost btn-sm d-none d-sm-inline-flex" (click)="logout()">Log out</button>
+      } @else {
+        <a routerLink="/login" class="btn btn-ghost btn-sm d-none d-sm-inline-flex">Login</a>
+        <a routerLink="/register" class="btn btn-primary btn-sm d-none d-sm-inline-flex">
+          Sign up <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+      }
+      <button class="btn btn-ghost btn-sm d-lg-none" type="button"
+              (click)="toggleMenu()" [attr.aria-expanded]="menuOpen()" aria-label="Toggle menu">
+        <i class="bi" [class.bi-list]="!menuOpen()" [class.bi-x]="menuOpen()"></i>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile drawer -->
+  @if (menuOpen()) {
+    <div class="aq-drawer d-lg-none" (click)="closeMenu()">
+      <ul class="container list-unstyled py-3 m-0">
+        @for (link of links; track link.fragment) {
+          <li class="py-2 border-bottom" style="border-color: var(--aq-hairline) !important;">
+            <a class="aq-quiet fs-5 d-block" [href]="'#' + link.fragment">{{ link.label }}</a>
+          </li>
+        }
+        <li class="d-flex gap-2 pt-3">
+          @if (auth.isLoggedIn()) {
+            <button type="button" class="btn btn-ghost flex-fill" (click)="logout()">Log out ({{ auth.user()?.username }})</button>
+          } @else {
+            <a routerLink="/login" class="btn btn-ghost flex-fill" (click)="closeMenu()">Login</a>
+            <a routerLink="/register" class="btn btn-primary flex-fill" (click)="closeMenu()">Sign up</a>
+          }
+        </li>
+      </ul>
+    </div>
+  }
+</header>

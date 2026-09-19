@@ -1,0 +1,21 @@
+# Keep the build context small and clean.
+.git
+**/node_modules
+**/dist
+**/.angular
+**/.tanstack
+**/.vscode
+server/data
+server/uploads
+**/*.log
+**/.env
+.env
+.DS_Store
+**/.DS_Store
+Archive.zip
+
+# Dead / unrelated code (not part of the deployable app).
+alphaq-web
+backend
+docs
+skills

@@ -1,0 +1,49 @@
+<section id="top" class="aq-hero">
+  <!-- 3D stage (right); static emblem fallback lives inside and shows until/unless 3D loads -->
+  <div class="aq-hero-stage" #stage aria-hidden="true">
+    <div class="aq-hero-fallback" [class.d-none]="ready3d()">
+      <span class="aq-fallback-q aq-display">Q</span>
+    </div>
+  </div>
+
+  <div class="container position-relative aq-hero-content">
+    <div class="row align-items-center min-vh-hero">
+      <div class="col-lg-7 col-xl-6">
+        <p class="aq-eyebrow mb-3">
+          <span class="aq-brace">&#123;</span> Play beyond limits <span class="aq-brace">&#125;</span>
+          <i class="bi bi-arrow-right ms-2"></i>
+        </p>
+
+        <h1 class="aq-display-xl text-white mb-0">
+          Indore's<br>next&#8209;level<br><span class="text-green">gaming café</span>
+        </h1>
+
+        <p class="aq-lead mt-4 mb-4 pe-lg-5" style="max-width: 34rem;">
+          High-end PC &amp; PS5 setups, low-ping internet and a clean, family-friendly
+          arena for every gamer. Book ahead, order food to your seat, and compete.
+        </p>
+
+        <div class="d-flex flex-wrap gap-3">
+          <a href="#pricing" class="btn btn-primary btn-lg">Book a setup now <i class="bi bi-arrow-right ms-1"></i></a>
+          <a href="#battlestation" class="btn btn-outline-light btn-lg">Explore battlestation</a>
+        </div>
+
+        <!-- Live availability chips -->
+        <div class="d-flex flex-wrap gap-3 mt-4 pt-2">
+          <span class="aq-badge aq-badge--live"><span class="aq-dot"></span>
+            {{ strip.pcAvailable() }}/{{ strip.pcTotal() }} PCs open</span>
+          <span class="aq-badge aq-badge--live"><span class="aq-dot"></span>
+            {{ strip.ps5Available() }}/{{ strip.ps5Total() }} PS5s open</span>
+          <span class="aq-badge">Open until 8 PM</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="aq-hero-foot d-flex justify-content-between align-items-center">
+      <a href="#battlestation" class="aq-quiet small d-inline-flex align-items-center gap-2">
+        Scroll for more <i class="bi bi-arrow-down"></i>
+      </a>
+      <span class="aq-eyebrow d-none d-md-inline">Est. {{ brand.est }}</span>
+    </div>
+  </div>
+</section>

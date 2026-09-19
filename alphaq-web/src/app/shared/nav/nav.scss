@@ -1,0 +1,41 @@
+:host { display: block; position: sticky; top: 0; z-index: 1030; }
+
+.aq-strip { background: rgba(6, 9, 11, .9); backdrop-filter: blur(8px); }
+
+.aq-nav {
+  height: var(--aq-nav-h);
+  display: flex;
+  align-items: center;
+  transition: background-color .3s ease, border-color .3s ease, backdrop-filter .3s ease;
+  border-bottom: 1px solid transparent;
+}
+.aq-nav--solid {
+  background: rgba(6, 9, 11, .82);
+  backdrop-filter: blur(14px) saturate(120%);
+  border-bottom-color: var(--aq-hairline);
+}
+
+.aq-logo-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  color: #04140b;
+  background: linear-gradient(150deg, var(--aq-green-bright), var(--aq-green-deep));
+  box-shadow: 0 8px 24px -10px rgba(30, 224, 122, .8);
+}
+.aq-links a { position: relative; }
+.aq-links a::after {
+  content: ''; position: absolute; left: 0; right: 100%; bottom: -6px; height: 2px;
+  background: var(--aq-green); transition: right .25s ease;
+}
+.aq-links a:hover::after { right: 0; }
+
+.aq-drawer {
+  position: absolute; left: 0; right: 0; top: 100%;
+  background: rgba(6, 9, 11, .97);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--aq-hairline);
+}

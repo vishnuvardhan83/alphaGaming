@@ -1,0 +1,44 @@
+<aq-auth-shell heading="Welcome back" sub="Log in to book setups, order food and track rewards.">
+  @if (error()) {
+    <div class="alert alert-danger py-2 small" role="alert">{{ error() }}</div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="mb-3">
+      <label class="form-label" for="identifier">Username or mobile</label>
+      <input id="identifier" type="text" class="form-control" formControlName="identifier"
+             autocomplete="username" placeholder="yourname or 98765 43210">
+      @if (form.controls.identifier.touched && form.controls.identifier.invalid) {
+        <div class="aq-field-error">Enter your username or mobile.</div>
+      }
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label" for="password">Password</label>
+      <div class="input-group">
+        <input id="password" [type]="showPw() ? 'text' : 'password'" class="form-control"
+               formControlName="password" autocomplete="current-password" placeholder="••••••••">
+        <button class="btn btn-ghost" type="button" (click)="showPw.set(!showPw())"
+                [attr.aria-label]="showPw() ? 'Hide password' : 'Show password'">
+          <i class="bi" [class.bi-eye]="!showPw()" [class.bi-eye-slash]="showPw()"></i>
+        </button>
+      </div>
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <div class="aq-field-error">Enter your password.</div>
+      }
+    </div>
+
+    <div class="text-end mb-3">
+      <a routerLink="/forgot-password" class="aq-quiet small">Forgot password?</a>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100" [disabled]="loading()">
+      @if (loading()) { <span class="spinner-border spinner-border-sm me-2"></span>Logging in… }
+      @else { Log in }
+    </button>
+  </form>
+
+  <p class="text-center text-muted-aq small mt-4 mb-0">
+    New to AlphaQ? <a routerLink="/register" class="text-green text-decoration-none fw-semibold">Create an account</a>
+  </p>
+</aq-auth-shell>

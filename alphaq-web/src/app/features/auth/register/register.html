@@ -1,0 +1,91 @@
+<aq-auth-shell heading="Create your account" sub="Mobile verification keeps AlphaQ fair for everyone.">
+  <!-- Step indicator -->
+  <div class="d-flex align-items-center gap-2 mb-4 small">
+    <span class="aq-step" [class.aq-step--on]="step() >= 1">1 · Mobile</span>
+    <span class="text-muted-aq">—</span>
+    <span class="aq-step" [class.aq-step--on]="step() >= 2">2 · Verify &amp; details</span>
+  </div>
+
+  @if (error()) { <div class="alert alert-danger py-2 small" role="alert">{{ error() }}</div> }
+  @if (notice() && step() === 2) { <div class="alert alert-success py-2 small" role="alert">{{ notice() }}</div> }
+
+  <!-- STEP 1 — mobile -->
+  @if (step() === 1) {
+    <form [formGroup]="mobileForm" (ngSubmit)="requestOtp()" novalidate>
+      <div class="mb-3">
+        <label class="form-label" for="mobile">Mobile number</label>
+        <input id="mobile" type="tel" class="form-control" formControlName="mobile"
+               autocomplete="tel" placeholder="9876543210" inputmode="numeric">
+        @if (mobileForm.controls.mobile.touched && mobileForm.controls.mobile.invalid) {
+          <div class="aq-field-error">Enter a valid mobile number (10–15 digits).</div>
+        }
+        <div class="text-muted-aq small mt-1">We'll send a one-time code to verify it.</div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100" [disabled]="loading()">
+        @if (loading()) { <span class="spinner-border spinner-border-sm me-2"></span>Sending OTP… }
+        @else { Send OTP <i class="bi bi-arrow-right ms-1"></i> }
+      </button>
+    </form>
+  }
+
+  <!-- STEP 2 — verify + account -->
+  @if (step() === 2) {
+    <form [formGroup]="detailsForm" (ngSubmit)="register()" novalidate>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label mb-0" for="otp">OTP sent to {{ mobileForm.getRawValue().mobile }}</label>
+        <button type="button" class="btn btn-link btn-sm p-0 text-green text-decoration-none" (click)="editMobile()">Change</button>
+      </div>
+      <div class="mb-3">
+        <input id="otp" type="text" class="form-control" formControlName="otp"
+               inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code">
+        @if (detailsForm.controls.otp.touched && detailsForm.controls.otp.invalid) {
+          <div class="aq-field-error">Enter the code from your SMS.</div>
+        }
+        <button type="button" class="btn btn-link btn-sm p-0 mt-1 text-muted-aq text-decoration-none"
+                (click)="resendOtp()" [disabled]="loading()">Resend code</button>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="username">Username</label>
+        <input id="username" type="text" class="form-control" formControlName="username"
+               autocomplete="username" placeholder="e.g. alpha_gamer">
+        @if (detailsForm.controls.username.touched && detailsForm.controls.username.invalid) {
+          <div class="aq-field-error">3–40 letters, numbers, dot or underscore.</div>
+        }
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label" for="rpassword">Password</label>
+        <div class="input-group">
+          <input id="rpassword" [type]="showPw() ? 'text' : 'password'" class="form-control"
+                 formControlName="password" autocomplete="new-password" placeholder="At least 8 characters">
+          <button class="btn btn-ghost" type="button" (click)="showPw.set(!showPw())"
+                  [attr.aria-label]="showPw() ? 'Hide password' : 'Show password'">
+            <i class="bi" [class.bi-eye]="!showPw()" [class.bi-eye-slash]="showPw()"></i>
+          </button>
+        </div>
+        @if (detailsForm.controls.password.touched && detailsForm.controls.password.invalid) {
+          <div class="aq-field-error">Password must be at least 8 characters.</div>
+        }
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label" for="email">Email <span class="text-muted-aq fw-normal">(optional)</span></label>
+        <input id="email" type="email" class="form-control" formControlName="email"
+               autocomplete="email" placeholder="you@example.com">
+        @if (detailsForm.controls.email.touched && detailsForm.controls.email.invalid) {
+          <div class="aq-field-error">Enter a valid email, or leave it blank.</div>
+        }
+      </div>
+
+      <button type="submit" class="btn btn-primary w-100" [disabled]="loading()">
+        @if (loading()) { <span class="spinner-border spinner-border-sm me-2"></span>Creating account… }
+        @else { Create account }
+      </button>
+    </form>
+  }
+
+  <p class="text-center text-muted-aq small mt-4 mb-0">
+    Already have an account? <a routerLink="/login" class="text-green text-decoration-none fw-semibold">Log in</a>
+  </p>
+</aq-auth-shell>

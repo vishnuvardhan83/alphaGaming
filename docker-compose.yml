@@ -1,0 +1,53 @@
+# AlphaQ Gaming — app (API + SPA) + MySQL.
+# Usage:
+#   cp .env.example .env      # then edit secrets
+#   docker compose up -d --build
+# App is served on http://localhost:4000 (put Nginx + your domain in front).
+
+services:
+  db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpw}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-alphaq}
+      MYSQL_USER: ${MYSQL_USER:-alphaq}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-alphaq_password}
+    volumes:
+      - db_data:/var/lib/mysql
+      # Optional: import the seed dump automatically on the FIRST run only
+      # (ignored once db_data exists). The app also seeds itself, so this is
+      # just a convenience — comment it out if you don't want it.
+      - ./server/db/alphaq.mysql.sql:/docker-entrypoint-initdb.d/alphaq.mysql.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_CLIENT: mysql
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-alphaq}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-alphaq_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-alphaq}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string}
+      ADMIN_PHONES: ${ADMIN_PHONES:-9573976462}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "4000:4000"
+    volumes:
+      # Persist uploaded images (gallery, food photos, backgrounds).
+      - uploads:/srv/server/uploads
+
+volumes:
+  db_data:
+  uploads:

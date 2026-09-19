@@ -1,0 +1,165 @@
+<aq-nav />
+
+<main class="aq-section">
+  <div class="container" style="max-width: 860px;">
+    <p class="aq-eyebrow mb-2"><span class="aq-kicker-line me-2 align-middle"></span>Book a setup</p>
+    <h1 class="aq-display-lg text-white mb-4">Reserve your battlestation</h1>
+
+    @if (error()) { <div class="alert alert-danger py-2 small" role="alert">{{ error() }}</div> }
+
+    <!-- ══ PHASE 1 — CONFIGURE ══ -->
+    @if (phase() === 'configure') {
+      <form [formGroup]="form" class="aq-card p-4 p-md-5">
+        <!-- Platform -->
+        <label class="form-label d-block">Platform</label>
+        <div class="d-flex gap-2 mb-4">
+          @for (p of ['PC','PS5']; track p) {
+            <button type="button" class="aq-platform flex-fill"
+                    [class.aq-platform--on]="form.controls.platform.value === p"
+                    (click)="form.controls.platform.setValue(p)">
+              <i class="bi" [class.bi-pc-display]="p==='PC'" [class.bi-playstation]="p==='PS5'"></i>
+              {{ p === 'PC' ? 'Gaming PC' : 'PlayStation 5' }}
+            </button>
+          }
+        </div>
+
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label" for="date">Date</label>
+            <input id="date" type="date" class="form-control" formControlName="date" [min]="minDate" [max]="maxDate">
+            <div class="text-muted-aq small mt-1">Up to 7 days ahead · closed Mondays</div>
+          </div>
+
+          <div class="col-sm-6 d-flex align-items-end">
+            <div class="form-check aq-daypass w-100">
+              <input class="form-check-input" type="checkbox" id="dayPass" formControlName="dayPass">
+              <label class="form-check-label" for="dayPass">
+                Full-day pass <span class="text-muted-aq small d-block">11:00 AM – 8:00 PM, all day</span>
+              </label>
+            </div>
+          </div>
+
+          @if (!form.controls.dayPass.value) {
+            <div class="col-sm-6">
+              <label class="form-label" for="start">Start time</label>
+              <select id="start" class="form-select" formControlName="start">
+                @for (t of startTimes; track t) { <option [value]="t">{{ t }}</option> }
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label" for="duration">Duration</label>
+              <select id="duration" class="form-select" formControlName="durationMin">
+                @for (d of durations; track d.min) { <option [value]="d.min">{{ d.label }}</option> }
+              </select>
+            </div>
+          }
+
+          <div class="col-sm-6">
+            <label class="form-label" for="qty">How many setups</label>
+            <input id="qty" type="number" class="form-control" formControlName="quantity" min="1" max="13">
+          </div>
+          @if (form.controls.platform.value === 'PS5') {
+            <div class="col-sm-6">
+              <label class="form-label" for="players">Players (per console)</label>
+              <input id="players" type="number" class="form-control" formControlName="participants" min="1" max="4">
+              <div class="text-muted-aq small mt-1">Same price for 1–4 players</div>
+            </div>
+          }
+        </div>
+
+        <!-- Availability + price -->
+        <div class="aq-summary mt-4 p-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              @if (checking()) {
+                <span class="text-muted-aq small"><span class="spinner-border spinner-border-sm me-2"></span>Checking availability…</span>
+              } @else if (availability(); as a) {
+                @if (a.available >= form.controls.quantity.value) {
+                  <span class="status status--available">{{ a.available }} of {{ a.capacity }} free</span>
+                  <span class="text-muted-aq small ms-2">for this slot</span>
+                } @else {
+                  <span class="status status--full">Only {{ a.available }} free</span>
+                  <span class="text-muted-aq small ms-2">reduce quantity or change the slot</span>
+                }
+              } @else {
+                <span class="text-muted-aq small">Pick a valid slot to see availability</span>
+              }
+            </div>
+            <div class="text-end">
+              <div class="aq-display text-white fs-3 aq-mono-num">₹{{ total() }}</div>
+              <div class="text-muted-aq small">₹{{ unitPrice() }} × {{ form.controls.quantity.value }}</div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-lg w-100 mt-4"
+                [disabled]="!enoughFree || submitting()" (click)="reserve()">
+          @if (submitting()) { <span class="spinner-border spinner-border-sm me-2"></span>Reserving… }
+          @else { Reserve &amp; continue <i class="bi bi-arrow-right ms-1"></i> }
+        </button>
+        <p class="text-center text-muted-aq small mt-3 mb-0">
+          Your slot is held for 10 minutes while you pay. Payment is confirmed after a quick admin approval.
+        </p>
+      </form>
+    }
+
+    <!-- ══ PHASE 2 — PAY (mock) ══ -->
+    @if (phase() === 'pay' && booking(); as b) {
+      <div class="aq-card p-4 p-md-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h2 class="h4 text-white mb-0 aq-display">Review &amp; pay</h2>
+          <span class="aq-badge aq-badge--live"><span class="aq-dot"></span>Held {{ holdLabel() }}</span>
+        </div>
+
+        <dl class="aq-review row mb-4">
+          <dt class="col-5">Reference</dt><dd class="col-7 text-white aq-mono-num">{{ b.reference }}</dd>
+          <dt class="col-5">Platform</dt><dd class="col-7 text-white">{{ b.platform === 'PC' ? 'Gaming PC' : 'PlayStation 5' }}</dd>
+          <dt class="col-5">Date</dt><dd class="col-7 text-white">{{ b.date }}</dd>
+          <dt class="col-5">Time</dt><dd class="col-7 text-white">{{ b.start }} – {{ b.end }}{{ b.dayPass ? ' (day pass)' : '' }}</dd>
+          <dt class="col-5">Setups</dt><dd class="col-7 text-white">{{ b.quantity }}</dd>
+          <dt class="col-5">Total</dt><dd class="col-7 text-green aq-display fs-4">₹{{ b.totalInr }}</dd>
+        </dl>
+
+        @if (holdRemaining() === 0) {
+          <div class="alert alert-danger py-2 small">Your hold expired. Please start again.</div>
+          <button class="btn btn-ghost w-100" (click)="cancelHold()">Start over</button>
+        } @else {
+          <button class="btn btn-primary btn-lg w-100" [disabled]="submitting()" (click)="payNow()">
+            @if (submitting()) { <span class="spinner-border spinner-border-sm me-2"></span>Processing… }
+            @else { Pay ₹{{ b.totalInr }} <span class="opacity-75 ms-1">(mock)</span> }
+          </button>
+          <button class="btn btn-ghost w-100 mt-2" [disabled]="submitting()" (click)="cancelHold()">Cancel</button>
+          <p class="text-center text-muted-aq small mt-3 mb-0">
+            <i class="bi bi-shield-lock me-1"></i>Dev mock payment — no real charge. Real UPI/gateway plugs in later.
+          </p>
+        }
+      </div>
+    }
+
+    <!-- ══ PHASE 3 — DONE ══ -->
+    @if (phase() === 'done' && booking(); as b) {
+      <div class="aq-card p-4 p-md-5 text-center">
+        <div class="aq-success-mark mb-3"><i class="bi bi-check-lg"></i></div>
+        <h2 class="aq-display-lg text-white mb-2" style="font-size: clamp(1.6rem,4vw,2.2rem);">Payment received</h2>
+        <span class="status status--soon mb-3 d-inline-block">Pending admin approval</span>
+        <p class="aq-lead mx-auto mb-4" style="max-width: 30rem;">
+          Booking <strong class="text-white aq-mono-num">{{ b.reference }}</strong> is confirmed for payment and now
+          awaits a quick manual approval. You'll be notified — payment alone isn't a final confirmation.
+        </p>
+        <dl class="aq-review row text-start mx-auto mb-4" style="max-width: 26rem;">
+          <dt class="col-5">Platform</dt><dd class="col-7 text-white">{{ b.platform === 'PC' ? 'Gaming PC' : 'PlayStation 5' }}</dd>
+          <dt class="col-5">Date</dt><dd class="col-7 text-white">{{ b.date }}</dd>
+          <dt class="col-5">Time</dt><dd class="col-7 text-white">{{ b.start }} – {{ b.end }}</dd>
+          <dt class="col-5">Setups</dt><dd class="col-7 text-white">{{ b.quantity }}</dd>
+          <dt class="col-5">Total paid</dt><dd class="col-7 text-green">₹{{ b.totalInr }}</dd>
+        </dl>
+        <div class="d-flex gap-2 justify-content-center">
+          <a routerLink="/" class="btn btn-ghost">Back to home</a>
+          <a routerLink="/book" class="btn btn-primary">Book another</a>
+        </div>
+      </div>
+    }
+  </div>
+</main>
+
+<aq-footer />

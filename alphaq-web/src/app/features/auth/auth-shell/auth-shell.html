@@ -1,0 +1,17 @@
+<div class="aq-auth-wrap">
+  <div class="aq-auth-card aq-card aq-card--flat p-4 p-md-5">
+    <a routerLink="/" class="d-inline-flex align-items-center gap-2 text-decoration-none mb-4">
+      <span class="aq-logo-mark aq-display">AQ</span>
+      <span class="aq-display fs-5 text-white">AlphaQ</span>
+    </a>
+
+    <h1 class="aq-display-lg text-white mb-1" style="font-size: clamp(1.8rem, 4vw, 2.4rem);">{{ heading() }}</h1>
+    @if (sub()) { <p class="text-muted-aq mb-4">{{ sub() }}</p> }
+
+    <ng-content />
+  </div>
+
+  <p class="text-center mt-3">
+    <a routerLink="/" class="aq-quiet small"><i class="bi bi-arrow-left me-1"></i>Back to home</a>
+  </p>
+</div>

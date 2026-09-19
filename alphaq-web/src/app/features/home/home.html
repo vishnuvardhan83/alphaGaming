@@ -1,0 +1,403 @@
+<aq-nav />
+
+<main>
+  <!-- 1 · HERO ------------------------------------------------------------- -->
+  <aq-hero />
+
+  <!-- 2 · INTERACTIVE BATTLESTATION ---------------------------------------- -->
+  <section id="battlestation" class="aq-section">
+    <div class="container">
+      <div class="row align-items-end mb-5">
+        <div class="col-lg-7" aqReveal>
+          <p class="aq-eyebrow mb-2"><span class="aq-kicker-line me-2 align-middle"></span>The battlestation</p>
+          <h2 class="aq-display-lg text-white mb-3">Every part, dialled&nbsp;in</h2>
+          <p class="aq-lead mb-0" style="max-width: 40rem;">
+            Scroll the hero to assemble a full rig in 3D — or explore each component right here.
+            Every card is a keyboard-accessible equivalent of the interactive hotspots.
+          </p>
+        </div>
+        <div class="col-lg-5 text-lg-end mt-3 mt-lg-0" aqReveal>
+          <span class="aq-badge"><i class="bi bi-mouse2"></i> Hover, tap or Tab to explore</span>
+        </div>
+      </div>
+
+      <div class="row g-3 g-md-4">
+        @for (spot of hotspots; track spot.title; let i = $index) {
+          <div class="col-6 col-lg-4" [aqReveal]="i * 60">
+            <div class="aq-card h-100 p-4">
+              <div class="aq-spot-icon mb-3"><i class="bi {{ spot.icon }}"></i></div>
+              <h3 class="h6 text-white mb-1">{{ spot.title }}</h3>
+              <p class="text-muted-aq small mb-0">{{ spot.body }}</p>
+            </div>
+          </div>
+        }
+      </div>
+      <p class="small text-muted-aq mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>
+        Exact hardware models &amp; specs are verified before publishing.</p>
+    </div>
+  </section>
+
+  <!-- 3 · PRICING ---------------------------------------------------------- -->
+  <section id="pricing" class="aq-section aq-hairline">
+    <div class="container">
+      <div class="text-center mb-5" aqReveal>
+        <p class="aq-eyebrow mb-2">Simple, honest pricing</p>
+        <h2 class="aq-display-lg text-white mb-2">Pick your platform</h2>
+        <p class="aq-lead mx-auto" style="max-width: 34rem;">
+          Pay by the half-hour, the hour, or grab a heavily-discounted full-day pass.
+          You choose the platform and quantity — we assign the exact setup on arrival.
+        </p>
+      </div>
+
+      @if (pricingLoading()) {
+        <div class="row g-4 justify-content-center">
+          @for (n of [1,2]; track n) {
+            <div class="col-md-6 col-lg-5"><div class="aq-card aq-card--flat p-5 text-center text-muted-aq">
+              <span class="spinner-border spinner-border-sm me-2"></span>Loading pricing…
+            </div></div>
+          }
+        </div>
+      } @else if (pricingError()) {
+        <div class="aq-card aq-card--flat p-5 text-center">
+          <p class="text-muted-aq mb-3"><i class="bi bi-exclamation-triangle text-green me-1"></i>{{ pricingError() }}</p>
+          <button class="btn btn-ghost" (click)="retryPricing()">Retry</button>
+        </div>
+      } @else {
+        <div class="row g-4 justify-content-center">
+          @for (plat of pricing(); track plat.platform) {
+            <div class="col-md-6 col-lg-5" aqReveal>
+              <div class="aq-card h-100 p-4 p-lg-5" [class.aq-card--accent]="plat.featured">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                  <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                      <i class="bi fs-4 text-green {{ plat.icon }}"></i>
+                      <h3 class="h4 text-white mb-0 aq-display">{{ plat.name }}</h3>
+                    </div>
+                    <p class="text-muted-aq small mb-0">{{ plat.tagline }}</p>
+                  </div>
+                  <span class="aq-badge">{{ plat.capacity }}</span>
+                </div>
+
+                <div class="d-grid gap-2 mb-4">
+                  @for (tier of plat.tiers; track tier.unit) {
+                    <div class="aq-tier d-flex justify-content-between align-items-baseline"
+                         [class.aq-tier--best]="tier.best">
+                      <span class="text-muted-aq">
+                        {{ tier.label }}
+                        @if (tier.best) { <span class="status status--available ms-2">Best value</span> }
+                      </span>
+                      <span class="aq-display text-white fs-4 aq-mono-num">
+                        ₹{{ tier.price }}<small class="text-muted-aq fs-6 ms-1">/{{ tier.unit }}</small>
+                      </span>
+                    </div>
+                  }
+                </div>
+
+                <p class="small text-muted-aq"><i class="bi bi-check2-circle text-green me-1"></i>{{ plat.note }}</p>
+                <a [routerLink]="['/book']" [queryParams]="{ platform: plat.platform }" class="btn w-100 mt-2"
+                   [class.btn-primary]="plat.featured" [class.btn-ghost]="!plat.featured">
+                  Book {{ plat.name }} <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </div>
+            </div>
+          }
+        </div>
+      }
+      <p class="text-center small text-muted-aq mt-4 mb-0">
+        Advance bookings require full online payment and are confirmed after a quick manual approval —
+        payment alone is never a final confirmation.
+      </p>
+    </div>
+  </section>
+
+  <!-- 4 · WHY ALPHAQ ------------------------------------------------------- -->
+  <section id="why" class="aq-section">
+    <div class="container">
+      <div class="row g-5 align-items-center">
+        <div class="col-lg-5" aqReveal>
+          <p class="aq-eyebrow mb-2">Why AlphaQ</p>
+          <h2 class="aq-display-lg text-white mb-3">Built for gamers who&nbsp;care</h2>
+          <p class="aq-lead">Performance hardware, fast internet and a genuinely clean, welcoming space —
+            the details that turn a session into a habit.</p>
+
+          <div class="row g-3 mt-3">
+            @for (s of stats; track s.label) {
+              <div class="col-6 col-sm-3 col-lg-6">
+                <div class="aq-stat">
+                  <div class="aq-display text-green fs-2 aq-mono-num">{{ s.value }}</div>
+                  <div class="text-muted-aq small text-uppercase" style="letter-spacing:.12em;">{{ s.label }}</div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="row g-3 g-md-4">
+            @for (f of features; track f.title; let i = $index) {
+              <div class="col-sm-6" [aqReveal]="i * 70">
+                <div class="aq-card aq-card--flat h-100 p-4">
+                  <div class="aq-spot-icon mb-3"><i class="bi {{ f.icon }}"></i></div>
+                  <h3 class="h6 text-white mb-1">{{ f.title }}</h3>
+                  <p class="text-muted-aq small mb-0">{{ f.body }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · GAMES ------------------------------------------------------------ -->
+  <section id="games" class="aq-section aq-hairline">
+    <div class="container">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3" aqReveal>
+        <div>
+          <p class="aq-eyebrow mb-2">Ready to play</p>
+          <h2 class="aq-display-lg text-white mb-0">The library</h2>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          @for (f of gameFilters; track f) {
+            <button type="button" class="aq-chip" [class.aq-chip--active]="gameFilter() === f"
+                    (click)="setFilter(f)">{{ f }}</button>
+          }
+        </div>
+      </div>
+
+      @if (gamesLoading()) {
+        <div class="aq-card aq-card--flat p-5 text-center text-muted-aq">
+          <span class="spinner-border spinner-border-sm me-2"></span>Loading games…
+        </div>
+      } @else if (gamesError()) {
+        <div class="aq-card aq-card--flat p-5 text-center">
+          <p class="text-muted-aq mb-3"><i class="bi bi-exclamation-triangle text-green me-1"></i>{{ gamesError() }}</p>
+          <button class="btn btn-ghost" (click)="retryGames()">Retry</button>
+        </div>
+      } @else {
+        <div class="row g-3 g-md-4">
+          @for (g of games(); track g.id; let i = $index) {
+            <div class="col-6 col-lg-4" [aqReveal]="i * 50">
+              <div class="aq-card aq-game h-100 p-4 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start">
+                  <h3 class="h5 text-white mb-0">{{ g.title }}</h3>
+                  <div class="d-flex gap-1">
+                    @for (p of g.platforms; track p) { <span class="aq-badge">{{ p }}</span> }
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                  @for (t of g.tags; track t) { <span class="aq-tag">{{ t }}</span> }
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <div class="col-12"><div class="aq-card p-5 text-center text-muted-aq">No titles match that filter yet.</div></div>
+          }
+        </div>
+      }
+      <p class="small text-muted-aq mt-3 mb-0">More titles are added regularly — full library published once staff verifies availability.</p>
+    </div>
+  </section>
+
+  <!-- 6 · PS5 LOUNGE ------------------------------------------------------- -->
+  <section id="ps5" class="aq-section">
+    <div class="container">
+      <div class="aq-band overflow-hidden" aqReveal>
+        <div class="row g-0 align-items-center">
+          <div class="col-lg-6 p-4 p-lg-5">
+            <p class="aq-eyebrow mb-2">PS5 couch lounge</p>
+            <h2 class="aq-display-lg text-white mb-3">Big TV. Comfy&nbsp;couch. Four&nbsp;controllers of chaos.</h2>
+            <p class="aq-lead mb-4">Grab the squad and settle into the PS5 lounge — one flat price per console,
+              whether it's just you or all four of you.</p>
+            <div class="d-flex flex-wrap gap-4">
+              <div><div class="aq-display text-green fs-3">₹120<small class="fs-6 text-muted-aq">/hr</small></div><div class="small text-muted-aq">per console</div></div>
+              <div><div class="aq-display text-green fs-3">1–4</div><div class="small text-muted-aq">players, same price</div></div>
+              <div><div class="aq-display text-green fs-3">₹600</div><div class="small text-muted-aq">full-day pass</div></div>
+            </div>
+            <a href="#pricing" class="btn btn-primary mt-4">Book the PS5 lounge <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+          <div class="col-lg-6 align-self-stretch">
+            <div class="aq-band-visual h-100">
+              <i class="bi bi-playstation"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · FOOD ------------------------------------------------------------- -->
+  <section id="food" class="aq-section aq-hairline">
+    <div class="container">
+      <div class="row align-items-end mb-4">
+        <div class="col-lg-8" aqReveal>
+          <p class="aq-eyebrow mb-2">Fuel the grind</p>
+          <h2 class="aq-display-lg text-white mb-2">Food &amp; drinks, to your&nbsp;seat</h2>
+          <p class="aq-lead mb-0">Order from your PC desk or PS5 couch — it's delivered straight to your setup.
+            Logged-in gamers only; pay online, by reward points or at the counter.</p>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0" aqReveal>
+          <a href="#login" class="btn btn-ghost">Order from your setup <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        @for (item of food; track item.name; let i = $index) {
+          <div class="col-6 col-md-4 col-lg-2" [aqReveal]="i * 40">
+            <div class="aq-card aq-card--flat h-100 p-3 text-center">
+              <div class="aq-food-emoji mb-2"><i class="bi bi-cup-hot"></i></div>
+              <div class="small text-white fw-medium">{{ item.name }}</div>
+              <div class="aq-eyebrow my-1" style="letter-spacing:.14em;">{{ item.category }}</div>
+              <div class="text-green aq-mono-num fw-semibold">₹{{ item.price }}</div>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · BIRTHDAYS & GROUPS ----------------------------------------------- -->
+  <section id="birthdays" class="aq-section">
+    <div class="container">
+      <div class="aq-cta-band text-center p-4 p-lg-5" aqReveal>
+        <p class="aq-eyebrow mb-2">Birthdays &amp; groups</p>
+        <h2 class="aq-display-lg text-white mb-3">Throw the party they'll&nbsp;screenshot</h2>
+        <p class="aq-lead mx-auto mb-4" style="max-width: 40rem;">
+          Reserve a cluster of PCs or the PS5 lounge, add food and a mini-tournament, and we'll tailor a quote.
+          A small deposit locks it in.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+          <a href="#visit" class="btn btn-primary btn-lg">Request a group quote</a>
+          <a href="#tournaments" class="btn btn-outline-light btn-lg">Add a mini-tournament</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 · TOURNAMENTS ------------------------------------------------------ -->
+  <section id="tournaments" class="aq-section aq-hairline">
+    <div class="container">
+      <div class="row align-items-end mb-4" aqReveal>
+        <div class="col-lg-8">
+          <p class="aq-eyebrow mb-2">Compete</p>
+          <h2 class="aq-display-lg text-white mb-0">Tournaments &amp; leaderboards</h2>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+          <a href="#login" class="btn btn-ghost">Register your team <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        @for (t of tournaments; track t.game; let i = $index) {
+          <div class="col-md-6" [aqReveal]="i * 80">
+            <div class="aq-card h-100 p-4 d-flex flex-column flex-sm-row gap-3 align-items-sm-center justify-content-between">
+              <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <h3 class="h5 text-white mb-0">{{ t.game }}</h3>
+                  <span class="status"
+                    [class.status--available]="t.status === 'open'"
+                    [class.status--soon]="t.status === 'soon'"
+                    [class.status--full]="t.status === 'full'">
+                    {{ t.status === 'open' ? 'Registration open' : t.status === 'soon' ? 'Coming soon' : 'Full' }}
+                  </span>
+                </div>
+                <p class="text-muted-aq small mb-0">{{ t.format }} · {{ t.date }} · {{ t.prize }}</p>
+              </div>
+              <a href="#login" class="btn btn-sm"
+                 [class.btn-primary]="t.status === 'open'" [class.btn-ghost]="t.status !== 'open'"
+                 [class.disabled]="t.status === 'full'">
+                {{ t.status === 'open' ? 'Register' : 'Notify me' }}
+              </a>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="aq-card aq-card--flat p-4 mt-4" aqReveal>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h6 text-white mb-0"><i class="bi bi-trophy text-green me-2"></i>Season leaderboard</h3>
+          <span class="aq-badge">Preview</span>
+        </div>
+        <ol class="aq-board list-unstyled m-0">
+          <li class="d-flex justify-content-between"><span><span class="text-green me-2">01</span>Team Nova</span><span class="aq-mono-num text-muted-aq">2,480 pts</span></li>
+          <li class="d-flex justify-content-between"><span><span class="text-green me-2">02</span>Frag Society</span><span class="aq-mono-num text-muted-aq">2,190 pts</span></li>
+          <li class="d-flex justify-content-between"><span><span class="text-green me-2">03</span>Indore Aces</span><span class="aq-mono-num text-muted-aq">1,905 pts</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 · GALLERY & REVIEWS ----------------------------------------------- -->
+  <section id="reviews" class="aq-section">
+    <div class="container">
+      <div class="row g-4 mb-4">
+        <div class="col-lg-5" aqReveal>
+          <p class="aq-eyebrow mb-2">The arena</p>
+          <h2 class="aq-display-lg text-white mb-3">Real space, real&nbsp;reviews</h2>
+          <p class="aq-lead">A peek inside AlphaQ, plus verified words from gamers who've booked and played.</p>
+          <div class="row g-2 mt-2">
+            @for (n of [1,2,3,4]; track n) {
+              <div class="col-6"><div class="aq-gallery-tile" [attr.data-i]="n"><i class="bi bi-image"></i></div></div>
+            }
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="row g-3">
+            @for (r of reviews; track r.name; let i = $index) {
+              <div class="col-12" [aqReveal]="i * 70">
+                <div class="aq-card aq-card--flat p-4">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="aq-avatar">{{ r.name.charAt(0) }}</span>
+                      <div>
+                        <div class="text-white small fw-semibold">{{ r.name }}</div>
+                        <div class="aq-eyebrow" style="letter-spacing:.12em;"><i class="bi bi-patch-check-fill text-green me-1"></i>{{ r.handle }}</div>
+                      </div>
+                    </div>
+                    <div class="text-green" aria-label="Rating">
+                      @for (s of stars(r.rating); track $index) { <i class="bi bi-star-fill small"></i> }
+                    </div>
+                  </div>
+                  <p class="text-muted-aq mb-0">“{{ r.body }}”</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 · VISIT / MAP ----------------------------------------------------- -->
+  <section id="visit" class="aq-section aq-hairline">
+    <div class="container">
+      <div class="row g-4 align-items-stretch">
+        <div class="col-lg-5" aqReveal>
+          <p class="aq-eyebrow mb-2">Visit us</p>
+          <h2 class="aq-display-lg text-white mb-3">Come play</h2>
+          <ul class="list-unstyled d-grid gap-3 m-0">
+            <li class="d-flex gap-3"><i class="bi bi-geo-alt fs-5 text-green"></i><div><div class="text-white">{{ brand.full }}</div><div class="text-muted-aq small">{{ brand.city }}, India</div></div></li>
+            <li class="d-flex gap-3"><i class="bi bi-clock fs-5 text-green"></i><div><div class="text-white">{{ brand.hours }}</div><div class="text-muted-aq small">{{ brand.closed }}</div></div></li>
+            <li class="d-flex gap-3"><i class="bi bi-telephone fs-5 text-green"></i><div><a class="text-white text-decoration-none" [href]="'tel:' + brand.phone">{{ brand.phone }}</a><div class="text-muted-aq small">Call for urgent changes</div></div></li>
+            <li class="d-flex gap-3"><i class="bi bi-whatsapp fs-5 text-green"></i><div><div class="text-white">{{ brand.whatsapp }}</div><div class="text-muted-aq small">Booking updates &amp; support</div></div></li>
+          </ul>
+          <div class="d-flex flex-wrap gap-2 mt-4">
+            <a href="#" class="btn btn-primary"><i class="bi bi-geo-alt me-1"></i>Get directions</a>
+            <a href="#" class="btn btn-ghost"><i class="bi bi-whatsapp me-1"></i>Chat on WhatsApp</a>
+          </div>
+        </div>
+
+        <div class="col-lg-7" aqReveal>
+          <div class="aq-map aq-grid-line h-100">
+            <div class="aq-map-pin"><i class="bi bi-geo-alt-fill"></i></div>
+            <span class="aq-badge aq-map-label"><i class="bi bi-map"></i> Google Maps embed — location marker added at launch</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 12 · FOOTER ------------------------------------------------------------ -->
+<aq-footer />
