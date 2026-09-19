@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode, type ComponentType } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Bell, LogOut, Menu, X, ChevronDown } from "lucide-react";
+import { LogOut, Menu, X, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getSettings } from "@/lib/db";
 import { AqEmblem } from "@/components/aq-emblem";
@@ -145,9 +145,6 @@ export function AppShell({
                 </Link>
               </div>
             )}
-            <button className="rounded-full border border-border p-2 text-muted-foreground transition hover:text-primary" aria-label="Notifications">
-              <Bell className="h-5 w-5" />
-            </button>
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 font-display text-sm font-bold text-primary">
                 {initial}
