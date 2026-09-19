@@ -41,6 +41,9 @@ function makeMysql() {
         waitForConnections: true,
         connectionLimit: Number(process.env.MYSQL_POOL || 10),
         charset: "utf8mb4",
+        // Fail a single connect attempt fast so the retry loop (waitForDb) can
+        // back off, instead of hanging on the driver's long default.
+        connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT || 10000),
       });
   return {
     kind: "mysql",
@@ -408,7 +411,60 @@ async function seed() {
   // empty. The admin adds real data through the in-app admin screens after deploy.
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Transient connection failures that are worth retrying (network/DNS warmup,
+// DB still booting). Anything else (bad credentials, unknown DB) fails fast.
+const TRANSIENT_DB_ERRORS = new Set([
+  "ETIMEDOUT",
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "EPIPE",
+  "PROTOCOL_CONNECTION_LOST",
+  "ER_CON_COUNT_ERROR",
+]);
+
+// Wait until MySQL accepts a connection, retrying transient errors with
+// exponential backoff. SQLite is a local file, so there is nothing to wait for.
+// Bounded by DB_CONNECT_RETRIES so startup can never hang forever.
+async function waitForDb() {
+  if (db.kind !== "mysql") return;
+
+  const maxRetries = Number(process.env.DB_CONNECT_RETRIES || 12);
+  const baseDelay = Number(process.env.DB_CONNECT_RETRY_DELAY_MS || 1000);
+  const maxDelay = Number(process.env.DB_CONNECT_MAX_DELAY_MS || 15000);
+
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await db.get("SELECT 1");
+      if (attempt > 1) console.log(`MySQL reachable after ${attempt} attempts.`);
+      return;
+    } catch (err) {
+      const code = (err && err.code) || "";
+      const retryable = TRANSIENT_DB_ERRORS.has(code);
+      if (!retryable || attempt >= maxRetries) {
+        // Sanitized: only the error code is surfaced — never host/credentials.
+        throw new Error(
+          `Could not connect to MySQL after ${attempt} attempt(s)` +
+            (code ? ` (last error: ${code})` : "") +
+            ". Verify the database service is running and the MYSQL_* variables are set.",
+        );
+      }
+      const delay = Math.min(baseDelay * 2 ** (attempt - 1), maxDelay);
+      console.log(
+        `MySQL not ready yet (${code || "unknown"}); retry ${attempt}/${maxRetries} in ${delay}ms.`,
+      );
+      await sleep(delay);
+    }
+  }
+}
+
 async function init() {
+  await waitForDb();
   await ensureSchema();
   await seed();
   return db.kind;
