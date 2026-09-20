@@ -30,10 +30,21 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [bg, setBg] = useState<string>(heroImg);
 
-  useEffect(() => {
+  const loadBg = () => {
     void getSettings()
       .then((s) => setBg(s.appBg || heroImg))
-      .catch(() => {});
+      .catch(() => { });
+  };
+
+  useEffect(() => {
+    loadBg();
+    const handleUpdate = () => loadBg();
+    window.addEventListener("settings-updated", handleUpdate);
+    window.addEventListener("app-bg-changed", handleUpdate);
+    return () => {
+      window.removeEventListener("settings-updated", handleUpdate);
+      window.removeEventListener("app-bg-changed", handleUpdate);
+    };
   }, []);
 
   async function logout() {
@@ -74,11 +85,10 @@ export function AppShell({
                 onSelect(item.key);
                 setOpen(false);
               }}
-              className={`${cls} ${
-                isActive
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
-              }`}
+              className={`${cls} ${isActive
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                }`}
             >
               <Icon className="h-5 w-5" /> {item.label}
             </button>

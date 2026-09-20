@@ -66,3 +66,13 @@ export async function apiUpload<T = any>(path: string, form: FormData): Promise<
     await fetch(API_BASE + path, { method: "POST", headers: authHeaders(), body: form }),
   );
 }
+
+export async function apiPatch<T = any>(path: string, body?: unknown): Promise<T> {
+  return handle(
+    await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(body ?? {}),
+    }),
+  );
+}

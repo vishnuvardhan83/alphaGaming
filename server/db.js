@@ -203,6 +203,22 @@ CREATE TABLE IF NOT EXISTS settings (
   \`key\` TEXT PRIMARY KEY,
   \`value\` TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS group_quotes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL DEFAULT '',
+  group_size INTEGER NOT NULL DEFAULT 1,
+  event_type TEXT NOT NULL DEFAULT 'group',
+  preferred_date TEXT NOT NULL DEFAULT '',
+  platform TEXT NOT NULL DEFAULT 'pc',
+  add_food INTEGER NOT NULL DEFAULT 0,
+  add_tournament INTEGER NOT NULL DEFAULT 0,
+  message TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at INTEGER NOT NULL
+);
 `;
 
 // MySQL runs one statement per exec() call, so keep them as an array.
@@ -309,6 +325,22 @@ const MYSQL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS settings (
     \`key\` VARCHAR(120) PRIMARY KEY,
     \`value\` TEXT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS group_quotes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    name VARCHAR(120) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(190) NOT NULL DEFAULT '',
+    group_size INT NOT NULL DEFAULT 1,
+    event_type VARCHAR(40) NOT NULL DEFAULT 'group',
+    preferred_date VARCHAR(60) NOT NULL DEFAULT '',
+    platform VARCHAR(20) NOT NULL DEFAULT 'pc',
+    add_food TINYINT NOT NULL DEFAULT 0,
+    add_tournament TINYINT NOT NULL DEFAULT 0,
+    message VARCHAR(1000) NOT NULL DEFAULT '',
+    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    created_at BIGINT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 

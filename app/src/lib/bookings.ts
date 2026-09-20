@@ -82,6 +82,10 @@ export async function completeBooking(id: string): Promise<Booking> {
   return apiPost<Booking>(`/admin/bookings/${id}/complete`);
 }
 
+export async function updateBookingUpiRef(id: string, upiRef: string): Promise<Booking> {
+  return apiPost<Booking>(`/admin/bookings/${id}/upi-ref`, { upiRef });
+}
+
 /** Compatibility shim for older call sites that set a status directly. */
 export async function updateBookingStatus(id: string, status: BookingStatus): Promise<void> {
   if (status === "confirmed") await approveBooking(id);

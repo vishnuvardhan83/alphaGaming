@@ -87,7 +87,8 @@ const toTournament = (t) => ({
   prize: t.prize,
   status: t.status,
   description: t.description,
-  capacity: t.capacity,
+  capacity: Number(t.capacity || 0),
+  registeredCount: Number(t.registered_count || t.registeredCount || 0),
   createdAt: t.created_at,
 });
 
@@ -150,6 +151,8 @@ function admin(req, res, next) {
     return res.status(403).json({ error: "Admins only." });
   next();
 }
+
+const adminOnly = [auth(), admin];
 
 const wrap = (fn) => async (req, res) => {
   try {
@@ -244,7 +247,11 @@ app.get(
 app.get(
   "/api/tournaments",
   wrap(async (req, res) => {
-    const rows = await db.all("SELECT * FROM tournaments ORDER BY created_at DESC");
+    const rows = await db.all(`
+      SELECT t.*, (SELECT COUNT(*) FROM registrations r WHERE r.tournament_id = t.id) AS registered_count
+      FROM tournaments t
+      ORDER BY t.created_at DESC
+    `);
     res.json(rows.map(toTournament));
   }),
 );
@@ -401,12 +408,47 @@ app.get(
 
 /* --------------------------------------------------------- tournaments --- */
 
+app.get(
+  "/api/tournaments/:id/registrations",
+  auth(false),
+  wrap(async (req, res) => {
+    const isAdmin = req.user && req.user.role === "admin";
+    const rows = await db.all(
+      "SELECT * FROM registrations WHERE tournament_id = ? ORDER BY created_at ASC",
+      [req.params.id],
+    );
+    res.json(
+      rows.map((r) => ({
+        id: String(r.id),
+        tournamentId: String(r.tournament_id),
+        playerName: r.player_name,
+        teamName: r.team_name || "",
+        phone: isAdmin ? r.phone : undefined,
+        createdAt: r.created_at,
+      })),
+    );
+  }),
+);
+
 app.post(
   "/api/tournaments/:id/register",
   auth(),
   wrap(async (req, res) => {
     const t = await db.get("SELECT * FROM tournaments WHERE id = ?", [req.params.id]);
     if (!t) throw new Error("Tournament not found.");
+    if (t.status === "closed") throw new Error("This tournament is closed.");
+    if (t.status === "full") throw new Error("This tournament is full.");
+
+    if (t.capacity > 0) {
+      const countRow = await db.get(
+        "SELECT COUNT(*) as count FROM registrations WHERE tournament_id = ?",
+        [t.id],
+      );
+      if (countRow && countRow.count >= t.capacity) {
+        throw new Error("Tournament registration is full.");
+      }
+    }
+
     const existing = await db.get(
       "SELECT 1 FROM registrations WHERE tournament_id = ? AND user_id = ?",
       [t.id, req.user.id],
@@ -423,6 +465,17 @@ app.post(
         now(),
       ],
     );
+
+    if (t.capacity > 0) {
+      const countRow = await db.get(
+        "SELECT COUNT(*) as count FROM registrations WHERE tournament_id = ?",
+        [t.id],
+      );
+      if (countRow && countRow.count >= t.capacity) {
+        await db.run("UPDATE tournaments SET status = 'full' WHERE id = ?", [t.id]);
+      }
+    }
+
     res.json({ ok: true });
   }),
 );
@@ -443,6 +496,79 @@ app.get(
     );
   }),
 );
+
+/* --------------------------------------------------------- group quotes --- */
+
+function toGroupQuote(r) {
+  return {
+    id: String(r.id),
+    userId: r.user_id ? String(r.user_id) : null,
+    name: r.name,
+    phone: r.phone,
+    email: r.email || "",
+    groupSize: Number(r.group_size),
+    eventType: r.event_type,
+    preferredDate: r.preferred_date || "",
+    platform: r.platform || "pc",
+    addFood: Boolean(r.add_food),
+    addTournament: Boolean(r.add_tournament),
+    message: r.message || "",
+    status: r.status || "pending",
+    createdAt: r.created_at,
+  };
+}
+
+// Submit a group/birthday quote request (auth optional — guests can submit too)
+app.post(
+  "/api/group-quotes",
+  auth(false),
+  wrap(async (req, res) => {
+    const b = req.body;
+    if (!b.name || !b.phone) throw new Error("Name and phone are required.");
+    const info = await db.run(
+      `INSERT INTO group_quotes(user_id, name, phone, email, group_size, event_type, preferred_date, platform, add_food, add_tournament, message, status, created_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        req.user?.id ?? null,
+        String(b.name),
+        String(b.phone),
+        String(b.email || ""),
+        Number(b.groupSize) || 1,
+        String(b.eventType || "group"),
+        String(b.preferredDate || ""),
+        String(b.platform || "pc"),
+        b.addFood ? 1 : 0,
+        b.addTournament ? 1 : 0,
+        String(b.message || ""),
+        "pending",
+        now(),
+      ],
+    );
+    const row = await db.get("SELECT * FROM group_quotes WHERE id = ?", [info.lastInsertRowid]);
+    res.json(toGroupQuote(row));
+  }),
+);
+
+// Admin: list all group quotes
+app.get(
+  "/api/admin/group-quotes",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const rows = await db.all("SELECT * FROM group_quotes ORDER BY created_at DESC");
+    res.json(rows.map(toGroupQuote));
+  }),
+);
+
+// Admin: update quote status (support both PATCH and PUT)
+const updateQuoteStatusHandler = wrap(async (req, res) => {
+  const { status } = req.body;
+  await db.run("UPDATE group_quotes SET status = ? WHERE id = ?", [String(status), req.params.id]);
+  const row = await db.get("SELECT * FROM group_quotes WHERE id = ?", [req.params.id]);
+  if (!row) throw new Error("Not found.");
+  res.json(toGroupQuote(row));
+});
+app.patch("/api/admin/group-quotes/:id", ...adminOnly, updateQuoteStatusHandler);
+app.put("/api/admin/group-quotes/:id", ...adminOnly, updateQuoteStatusHandler);
 
 /* ------------------------------------------------------------- rewards --- */
 
@@ -482,8 +608,6 @@ app.post(
 );
 
 /* =========================================================== ADMIN ======= */
-
-const adminOnly = [auth(), admin];
 
 app.get(
   "/api/admin/bookings",
@@ -533,6 +657,17 @@ app.post(
     res.json(toBooking(await db.get("SELECT * FROM bookings WHERE id = ?", [b.id])));
   }),
 );
+
+// Admin: update booking UPI reference
+const updateBookingUpiRefHandler = wrap(async (req, res) => {
+  const b = await db.get("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
+  if (!b) throw new Error("Booking not found.");
+  const upiRef = String(req.body.upiRef || "").trim();
+  await db.run("UPDATE bookings SET upi_ref = ? WHERE id = ?", [upiRef || null, b.id]);
+  res.json(toBooking(await db.get("SELECT * FROM bookings WHERE id = ?", [b.id])));
+});
+app.post("/api/admin/bookings/:id/upi-ref", ...adminOnly, updateBookingUpiRefHandler);
+app.put("/api/admin/bookings/:id/upi-ref", ...adminOnly, updateBookingUpiRefHandler);
 
 // Games CRUD
 app.post(
@@ -680,7 +815,16 @@ app.delete(
   "/api/admin/tournaments/:id",
   ...adminOnly,
   wrap(async (req, res) => {
+    await db.run("DELETE FROM registrations WHERE tournament_id = ?", [req.params.id]);
     await db.run("DELETE FROM tournaments WHERE id = ?", [req.params.id]);
+    res.json({ ok: true });
+  }),
+);
+app.delete(
+  "/api/admin/registrations/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    await db.run("DELETE FROM registrations WHERE id = ?", [req.params.id]);
     res.json({ ok: true });
   }),
 );
@@ -762,7 +906,7 @@ const upload = multer({
       cb(null, `g_${Date.now()}_${Math.round(Math.random() * 1e6)}${ext}`);
     },
   }),
-  limits: { fileSize: 6 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
 });
 
 app.post(

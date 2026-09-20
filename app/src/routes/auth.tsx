@@ -18,6 +18,9 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const redirect = params?.get("redirect") || "/dashboard";
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <SiteNav />
@@ -27,7 +30,7 @@ function AuthPage() {
           <p className="mb-8 text-center font-display text-sm font-semibold uppercase tracking-[0.3em] text-primary">
             Gamer portal
           </p>
-          <AuthForm redirectTo="/dashboard" />
+          <AuthForm redirectTo={redirect} />
         </div>
       </main>
       <SiteFooter />

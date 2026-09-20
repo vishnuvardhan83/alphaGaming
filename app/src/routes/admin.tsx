@@ -21,6 +21,8 @@ import {
   Save,
   Upload,
   Home,
+  Pencil,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/modal";
@@ -35,6 +37,7 @@ import {
   approveBooking,
   rejectBooking,
   completeBooking,
+  updateBookingUpiRef,
   cancelBooking,
   setupLabel,
   STATUS_LABEL,
@@ -53,6 +56,8 @@ import {
   listTournaments,
   createTournament,
   deleteTournament,
+  listTournamentRegistrations,
+  deleteTournamentRegistration,
   listAllFoodOrders,
   updateFoodOrderStatus,
   listAllReviews,
@@ -75,6 +80,7 @@ import {
   type FoodItem,
   type Tournament,
   type TournamentStatus,
+  type TournamentRegistration,
   type FoodOrder,
   type FoodOrderStatus,
   type Review,
@@ -199,6 +205,9 @@ function BookingsTab() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
   const [busy, setBusy] = useState<string | null>(null);
+  const [upiModalBooking, setUpiModalBooking] = useState<Booking | null>(null);
+  const [upiInput, setUpiInput] = useState("");
+  const [savingUpi, setSavingUpi] = useState(false);
 
   const reload = () => {
     setBookings(null);
@@ -211,6 +220,27 @@ function BookingsTab() {
   };
   useEffect(reload, []);
 
+  function onEditUpi(b: Booking) {
+    setUpiModalBooking(b);
+    setUpiInput(b.upiRef || "");
+  }
+
+  async function handleSaveUpi(e: React.FormEvent) {
+    e.preventDefault();
+    if (!upiModalBooking) return;
+    try {
+      setSavingUpi(true);
+      await updateBookingUpiRef(upiModalBooking.id, upiInput.trim());
+      toast.success("UPI reference updated successfully.");
+      setUpiModalBooking(null);
+      reload();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update UPI reference.");
+    } finally {
+      setSavingUpi(false);
+    }
+  }
+
   if (bookings === null) return <Spinner />;
 
   const today = new Date().toISOString().slice(0, 10);
@@ -221,6 +251,7 @@ function BookingsTab() {
   const uniqueGamers = new Set(bookings.map((b) => b.userId)).size;
 
   const shown = filter === "all" ? bookings : bookings.filter((b) => b.status === filter);
+
 
   async function run(id: string, action: () => Promise<unknown>, ok: string) {
     setBusy(id);
@@ -273,11 +304,10 @@ function BookingsTab() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${
-              filter === f
-                ? "bg-primary text-primary-foreground"
-                : "border border-border text-muted-foreground hover:text-primary"
-            }`}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition ${filter === f
+              ? "bg-primary text-primary-foreground"
+              : "border border-border text-muted-foreground hover:text-primary"
+              }`}
           >
             {f === "all" ? "All" : STATUS_LABEL[f as BookingStatus]}
           </button>
@@ -301,10 +331,23 @@ function BookingsTab() {
                   <p className="font-display text-sm font-semibold">
                     {setupLabel(b)} · {b.date} {b.slot} · {b.durationLabel} · {formatINR(b.price)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {b.phone}
-                    {b.platform === "ps5" ? ` · ${b.players} players` : ""}
-                    {b.upiRef ? ` · UPI ref ${b.upiRef}` : ""}
+                  <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5 mt-0.5">
+                    <span>{b.phone}</span>
+                    {b.platform === "ps5" ? <span>· {b.players} players</span> : null}
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-1 rounded bg-secondary/50 px-1.5 py-0.5 text-[11px]">
+                      <span>UPI: <strong className="font-mono text-foreground">{b.upiRef || "None"}</strong></span>
+                      {(b.status === "pending" || b.status === "awaiting_payment") && (
+                        <button
+                          type="button"
+                          onClick={() => onEditUpi(b)}
+                          className="ml-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/20 transition"
+                          title="Change customer UPI reference"
+                        >
+                          <Pencil className="h-2.5 w-2.5" /> Edit
+                        </button>
+                      )}
+                    </span>
                   </p>
                   {b.decisionReason && (
                     <p className="mt-1 text-xs text-destructive">Reason: {b.decisionReason}</p>
@@ -323,7 +366,7 @@ function BookingsTab() {
                     </button>
                   </>
                 )}
-                {b.status === "confirmed" && (
+                {(b.status === "confirmed" || b.status === "awaiting_payment") && (
                   <button onClick={() => onComplete(b)} disabled={isBusy} className={primaryBtn}>
                     {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark completed"}
                   </button>
@@ -338,6 +381,49 @@ function BookingsTab() {
           );
         })}
       </div>
+
+      <Modal
+        open={Boolean(upiModalBooking)}
+        onClose={() => setUpiModalBooking(null)}
+        title="Change UPI Reference"
+      >
+        <form onSubmit={handleSaveUpi} className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Update the UPI transaction reference for customer{" "}
+            <strong className="text-foreground">{upiModalBooking?.phone}</strong> (Booking #{upiModalBooking?.id}):
+          </p>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">
+              UPI Reference Number / Transaction ID
+            </label>
+            <input
+              type="text"
+              value={upiInput}
+              onChange={(e) => setUpiInput(e.target.value)}
+              placeholder="e.g. 423456789012 or UPI-REF-XYZ"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setUpiModalBooking(null)}
+              className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={savingUpi}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {savingUpi ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save UPI Ref
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -667,6 +753,9 @@ const TOURNAMENT_STATUSES: TournamentStatus[] = ["open", "soon", "full", "closed
 function TournamentsTab() {
   const [items, setItems] = useState<Tournament[] | null>(null);
   const [open, setOpen] = useState(false);
+  const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [regs, setRegs] = useState<TournamentRegistration[] | null>(null);
+  const [regsLoading, setRegsLoading] = useState(false);
   const [game, setGame] = useState("");
   const [format, setFormat] = useState("");
   const [date, setDate] = useState("");
@@ -681,6 +770,27 @@ function TournamentsTab() {
     void listTournaments().then(setItems);
   };
   useEffect(reload, []);
+
+  function viewRegistrations(t: Tournament) {
+    setActiveTournament(t);
+    setRegs(null);
+    setRegsLoading(true);
+    listTournamentRegistrations(t.id)
+      .then(setRegs)
+      .catch(() => setRegs([]))
+      .finally(() => setRegsLoading(false));
+  }
+
+  async function deleteReg(regId: string) {
+    try {
+      await deleteTournamentRegistration(regId);
+      toast.success("Participant removed.");
+      setRegs((prev) => (prev ? prev.filter((r) => r.id !== regId) : prev));
+      reload();
+    } catch {
+      toast.error("Could not remove participant.");
+    }
+  }
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -733,84 +843,165 @@ function TournamentsTab() {
       </p>
       <ListHeader title="Tournaments" addLabel="Add tournament" onAdd={() => setOpen(true)} />
       <div className="space-y-3">
-          {items === null ? (
-            <Spinner />
-          ) : items.length === 0 ? (
-            <Empty>No tournaments scheduled yet.</Empty>
-          ) : (
-            items.map((t) => (
-              <div
-                key={t.id}
-                className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
-              >
-                <div>
-                  <p className="font-display text-sm font-semibold">
-                    {t.game} · {t.format}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.date} · {t.prize}
-                    {t.capacity ? ` · cap ${t.capacity}` : ""}
-                  </p>
-                  {t.description && (
-                    <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={t.status} />
-                  <button onClick={() => remove(t)} className={dangerBtn} aria-label="Delete tournament">
-                    <Trash2 className="h-3.5 w-3.5" />
+        {items === null ? (
+          <Spinner />
+        ) : items.length === 0 ? (
+          <Empty>No tournaments scheduled yet.</Empty>
+        ) : (
+          items.map((t) => (
+            <div
+              key={t.id}
+              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
+            >
+              <div>
+                <p className="font-display text-sm font-semibold">
+                  {t.game} · {t.format}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t.date} · {t.prize}
+                  {t.capacity ? ` · cap ${t.capacity}` : " · Unlimited"}
+                </p>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground font-mono">
+                    <Users className="h-3 w-3 text-primary" />
+                    {t.registeredCount ?? 0} / {t.capacity || "∞"} registered
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => viewRegistrations(t)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    View roster ({t.registeredCount ?? 0})
                   </button>
                 </div>
+                {t.description && (
+                  <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
+                )}
               </div>
-            ))
-          )}
+              <div className="flex items-center gap-2">
+                <StatusBadge status={t.status} />
+                <button onClick={() => remove(t)} className={dangerBtn} aria-label="Delete tournament">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Add tournament">
-          <form onSubmit={add} className="space-y-4">
-            <div>
-              <label className={labelCls}>Game</label>
-              <input className={inputCls} value={game} onChange={(e) => setGame(e.target.value)} placeholder="Valorant" />
+        <form onSubmit={add} className="space-y-4">
+          <div>
+            <label className={labelCls}>Game</label>
+            <input className={inputCls} value={game} onChange={(e) => setGame(e.target.value)} placeholder="Valorant" />
+          </div>
+          <div>
+            <label className={labelCls}>Format</label>
+            <input className={inputCls} value={format} onChange={(e) => setFormat(e.target.value)} placeholder="5v5 · Single elim" />
+          </div>
+          <div>
+            <label className={labelCls}>Date</label>
+            <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Prize</label>
+            <input className={inputCls} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="₹10,000 pool" />
+          </div>
+          <div>
+            <label className={labelCls}>Status</label>
+            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as TournamentStatus)}>
+              {TOURNAMENT_STATUSES.map((s) => (
+                <option key={s} value={s} className="bg-background capitalize">
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Capacity (0 = unlimited)</label>
+            <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
+          </div>
+          <div>
+            <label className={labelCls}>Description</label>
+            <textarea
+              className={`${inputCls} min-h-[72px] resize-y`}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Doors 6pm. BYO peripherals."
+            />
+          </div>
+          <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add tournament
+          </button>
+        </form>
+      </Modal>
+
+      <Modal
+        open={!!activeTournament}
+        onClose={() => setActiveTournament(null)}
+        title={activeTournament ? `${activeTournament.game} — Registered participants` : "Participants"}
+      >
+        {regsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Spinner />
+          </div>
+        ) : !regs || regs.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No participants or teams have registered for this tournament yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-muted-foreground pb-2 border-b border-border">
+              <span>{regs.length} participant{regs.length === 1 ? "" : "s"} registered</span>
+              {activeTournament && activeTournament.capacity > 0 && (
+                <span className="font-mono text-primary font-semibold">
+                  {Math.max(0, activeTournament.capacity - regs.length)} spots left
+                </span>
+              )}
             </div>
-            <div>
-              <label className={labelCls}>Format</label>
-              <input className={inputCls} value={format} onChange={(e) => setFormat(e.target.value)} placeholder="5v5 · Single elim" />
+            <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+              {regs.map((r, idx) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between rounded-lg border border-border bg-card p-3 text-sm"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-mono text-xs font-bold text-primary">#{idx + 1}</span>
+                    <div>
+                      <p className="font-semibold text-foreground">{r.playerName}</p>
+                      {r.teamName && (
+                        <p className="text-xs text-primary font-medium">Team: {r.teamName}</p>
+                      )}
+                      {r.phone && (
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground font-mono mt-0.5">
+                          <Phone className="h-3 w-3" /> +{r.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      {new Date(r.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => deleteReg(r.id)}
+                      className={dangerBtn}
+                      title="Remove participant"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className={labelCls}>Date</label>
-              <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Prize</label>
-              <input className={inputCls} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="₹10,000 pool" />
-            </div>
-            <div>
-              <label className={labelCls}>Status</label>
-              <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as TournamentStatus)}>
-                {TOURNAMENT_STATUSES.map((s) => (
-                  <option key={s} value={s} className="bg-background capitalize">
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Capacity (0 = unlimited)</label>
-              <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
-            </div>
-            <div>
-              <label className={labelCls}>Description</label>
-              <textarea
-                className={`${inputCls} min-h-[72px] resize-y`}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Doors 6pm. BYO peripherals."
-              />
-            </div>
-            <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add tournament
-            </button>
-          </form>
+          </div>
+        )}
       </Modal>
     </div>
   );
@@ -999,11 +1190,10 @@ function ReviewsTab() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      r.approved
-                        ? "bg-primary/10 text-primary"
-                        : "border border-border text-muted-foreground"
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${r.approved
+                      ? "bg-primary/10 text-primary"
+                      : "border border-border text-muted-foreground"
+                      }`}
                   >
                     {r.approved ? "Approved" : "Pending"}
                   </span>
@@ -1230,9 +1420,25 @@ function SettingsTab() {
     try {
       const { appBg } = await uploadAppBg(file);
       setValues((prev) => ({ ...(prev ?? {}), appBg }));
+      window.dispatchEvent(new CustomEvent("app-bg-changed", { detail: appBg }));
       toast.success("Dashboard background updated.");
     } catch {
       toast.error("Upload failed.");
+    } finally {
+      setUploadingBg(false);
+    }
+  }
+
+  async function onResetBg() {
+    if (!window.confirm("Reset dashboard background to the default bundled image?")) return;
+    setUploadingBg(true);
+    try {
+      await updateSettings({ appBg: "" });
+      setValues((prev) => ({ ...(prev ?? {}), appBg: "" }));
+      window.dispatchEvent(new CustomEvent("app-bg-changed", { detail: "" }));
+      toast.success("Reset to default background.");
+    } catch {
+      toast.error("Failed to reset background.");
     } finally {
       setUploadingBg(false);
     }
@@ -1340,7 +1546,7 @@ function SettingsTab() {
         </FormCard>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 hidden">
         <FormCard title="Dashboard background">
           <p className="text-xs text-muted-foreground">
             Background image behind the logged-in dashboard/portal. Upload to replace it.
@@ -1354,11 +1560,23 @@ function SettingsTab() {
           ) : (
             <p className="mt-3 text-xs text-muted-foreground">Using the bundled default image.</p>
           )}
-          <label className={`${ghostBtn} mt-4 inline-flex cursor-pointer items-center gap-2`}>
-            {uploadingBg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {uploadingBg ? "Uploading…" : "Upload background image"}
-            <input type="file" accept="image/*" className="hidden" onChange={onBgFile} disabled={uploadingBg} />
-          </label>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label className={`${ghostBtn} inline-flex cursor-pointer items-center gap-2`}>
+              {uploadingBg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {uploadingBg ? "Uploading…" : "Upload background image"}
+              <input type="file" accept="image/*" className="hidden" onChange={onBgFile} disabled={uploadingBg} />
+            </label>
+            {values.appBg && (
+              <button
+                type="button"
+                onClick={onResetBg}
+                disabled={uploadingBg}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive hover:border-destructive/40 transition"
+              >
+                Reset to default
+              </button>
+            )}
+          </div>
         </FormCard>
       </div>
     </div>
@@ -1521,11 +1739,10 @@ function UsersTab() {
                 <p className="font-display text-sm font-semibold">
                   {u.name}{" "}
                   <span
-                    className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${
-                      u.role === "admin"
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground"
-                    }`}
+                    className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${u.role === "admin"
+                      ? "border-primary/50 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground"
+                      }`}
                   >
                     {u.role}
                   </span>
@@ -1639,7 +1856,7 @@ function AdminPage() {
 
   return (
     <AppShell nav={ADMIN_NAV} active={tab} onSelect={(k) => setTab(k as TabKey | "home")}>
-      {tab === "home" && <LandingContent />}
+      {tab === "home" && <LandingContent onFood={() => setTab("food")} />}
       {tab === "bookings" && <BookingsTab />}
       {tab === "games" && <GamesTab />}
       {tab === "food" && <FoodTab />}

@@ -17,7 +17,13 @@ export function AuthForm({ redirectTo = "/dashboard" }: { redirectTo?: string })
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) navigate({ to: redirectTo });
+    if (user) {
+      if (redirectTo.includes("#") || redirectTo.includes("?")) {
+        window.location.href = redirectTo;
+      } else {
+        navigate({ to: redirectTo as any });
+      }
+    }
   }, [user, navigate, redirectTo]);
 
   if (!configured) return <SetupNotice feature="Accounts & sign-in" />;
@@ -31,7 +37,11 @@ export function AuthForm({ redirectTo = "/dashboard" }: { redirectTo?: string })
       } else {
         await register({ phone, name, password });
       }
-      navigate({ to: redirectTo });
+      if (redirectTo.includes("#") || redirectTo.includes("?")) {
+        window.location.href = redirectTo;
+      } else {
+        navigate({ to: redirectTo as any });
+      }
     } catch (e) {
       setError(friendlyError(e));
     } finally {

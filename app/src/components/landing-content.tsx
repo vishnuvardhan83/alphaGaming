@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, lazy, Suspense } from "react";
 import {
   Cpu,
@@ -24,6 +24,7 @@ import {
 
 import { toast } from "sonner";
 import { TournamentsSection } from "@/components/tournaments-section";
+import { GroupQuoteModal } from "@/components/group-quote-modal";
 import { useAuth } from "@/lib/auth";
 const Hero3D = lazy(() =>
   import("@/components/hero-3d").then((m) => ({ default: m.Hero3D })),
@@ -162,10 +163,10 @@ function useAdminSettings() {
 
   // Stats — use admin values if set, otherwise BRAND/default
   const stats = [
-    { value: s.statSetups || "13",   label: "Pro setups" },
+    { value: s.statSetups || "13", label: "Pro setups" },
     { value: s.statRefresh || "240Hz", label: "Refresh rate" },
-    { value: s.statPing   || "<20ms", label: "Local ping" },
-    { value: s.statTitles || "7+",   label: "Titles installed" },
+    { value: s.statPing || "<20ms", label: "Local ping" },
+    { value: s.statTitles || "7+", label: "Titles installed" },
   ];
 
   // Pricing — use admin values if set, otherwise fall back to PRICING defaults
@@ -174,15 +175,15 @@ function useAdminSettings() {
     tiers:
       p.key === "pc"
         ? [
-            { label: "30 minutes",    price: Number(s.pcPrice30m)  || p.tiers[0]!.price, unit: "30 min" },
-            { label: "Per hour",      price: Number(s.pcPrice1h)   || p.tiers[1]!.price, unit: "hour" },
-            { label: "Full-day pass", price: Number(s.pcPriceDay)  || p.tiers[2]!.price, unit: "day" },
-          ]
+          { label: "30 minutes", price: Number(s.pcPrice30m) || p.tiers[0]!.price, unit: "30 min" },
+          { label: "Per hour", price: Number(s.pcPrice1h) || p.tiers[1]!.price, unit: "hour" },
+          { label: "Full-day pass", price: Number(s.pcPriceDay) || p.tiers[2]!.price, unit: "day" },
+        ]
         : [
-            { label: "30 minutes",    price: Number(s.ps5Price30m) || p.tiers[0]!.price, unit: "30 min" },
-            { label: "Per hour",      price: Number(s.ps5Price1h)  || p.tiers[1]!.price, unit: "hour" },
-            { label: "Full-day pass", price: Number(s.ps5PriceDay) || p.tiers[2]!.price, unit: "day" },
-          ],
+          { label: "30 minutes", price: Number(s.ps5Price30m) || p.tiers[0]!.price, unit: "30 min" },
+          { label: "Per hour", price: Number(s.ps5Price1h) || p.tiers[1]!.price, unit: "hour" },
+          { label: "Full-day pass", price: Number(s.ps5PriceDay) || p.tiers[2]!.price, unit: "day" },
+        ],
   }));
 
   const address = s.address || "";
@@ -295,7 +296,14 @@ const SPOT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   network: Wifi,
 };
 
-export function LandingContent({ onBook }: { onBook?: () => void }) {
+export function LandingContent({
+  onBook,
+  onFood,
+}: {
+  onBook?: () => void;
+  onFood?: () => void;
+}) {
+  const { user } = useAuth();
   const avail = useAvailability();
   const games = useGames();
   const food = useFood();
@@ -304,6 +312,8 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
   const arenaImage = useArenaImage();
   const adminSettings = useAdminSettings();
   const [selectedFilter, setSelectedFilter] = useState("All");
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [quotePrefillTournament, setQuotePrefillTournament] = useState(false);
 
   const filteredGames = games.filter((g) => {
     if (selectedFilter === "All") return true;
@@ -327,7 +337,7 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
       <section id="top" className="relative flex min-h-[92vh] items-center overflow-hidden pt-20">
         {/* Background arena image from before */}
         <img
-          src={heroImg || arenaImage}
+          src={(heroImg || arenaImage) ?? undefined}
           alt="AlphaQ Gaming arena"
           width={1920}
           height={1088}
@@ -699,12 +709,31 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
                 Order from your PC desk or PS5 couch — it's delivered straight to your setup. Logged-in gamers only; pay online, by reward points or at the counter.
               </p>
             </div>
-            <Link
-              to="/auth"
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
-            >
-              Order from your setup <ArrowRight className="h-4 w-4" />
-            </Link>
+            {user ? (
+              onFood ? (
+                <button
+                  type="button"
+                  onClick={onFood}
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white cursor-pointer"
+                >
+                  Order from your setup <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <a
+                  href="/dashboard#food"
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
+                >
+                  Order from your setup <ArrowRight className="h-4 w-4" />
+                </a>
+              )
+            ) : (
+              <a
+                href="/auth?redirect=/dashboard#food"
+                className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
+              >
+                Order from your setup <ArrowRight className="h-4 w-4" />
+              </a>
+            )}
           </div>
 
           {/* 6 food cards matching Screenshot 2 */}
@@ -745,42 +774,50 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
               Reserve a cluster of PCs or the PS5 lounge, add food and a mini-tournament, and we'll tailor a quote. A small deposit locks it in.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
-              <a
-                href="#visit"
+              <button
+                type="button"
+                onClick={() => { setQuotePrefillTournament(false); setQuoteOpen(true); }}
                 className="rounded-full bg-primary px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
               >
                 Request a group quote
-              </a>
-              <a
-                href="#tournaments"
+              </button>
+              <button
+                type="button"
+                onClick={() => { setQuotePrefillTournament(true); setQuoteOpen(true); }}
                 className="rounded-full border border-white/20 bg-white/[0.02] px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-white transition hover:border-primary/50"
               >
                 Add a mini-tournament
-              </a>
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 9 · TOURNAMENTS & LEADERBOARDS (Screenshot 3) */}
-      <TournamentsSection />
+      {/* Tournaments — pass onQuoteOpen so Register your team opens modal */}
+      <TournamentsSection onGroupQuote={() => { setQuotePrefillTournament(false); setQuoteOpen(true); }} />
 
       {/* 10 · THE ARENA (Gallery + Reviews) */}
       <section id="reviews" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
+
+          {/* Main Reviews + Gallery */}
           <div className="grid gap-12 lg:grid-cols-12">
+
             {/* Gallery Column */}
             <div className="lg:col-span-5">
               <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
                 The arena
               </p>
-              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+
+              <h2 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-white sm:text-5xl">
                 Real space, real reviews
               </h2>
-              <p className="mt-3 text-sm sm:text-base text-[#8ba095]">
+
+              <p className="mt-3 text-sm text-[#8ba095] sm:text-base">
                 A peek inside AlphaQ, plus verified words from gamers who've booked and played.
               </p>
 
+              {/* Exactly 4 images */}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 {gallery.length > 0 ? (
                   gallery.slice(0, 4).map((g) => (
@@ -812,44 +849,70 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
             </div>
 
             {/* Reviews Column */}
-            <div className="lg:col-span-7 space-y-4">
-              {reviews === null ? (
-                <div className="flex justify-center py-8">
-                  <span className="text-sm text-[#8ba095]">Loading reviews…</span>
-                </div>
-              ) : reviews.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 text-center">
-                  <p className="text-sm text-[#8ba095]">No reviews yet — be the first to share your experience!</p>
-                </div>
-              ) : (
-                reviews.map((r, i) => {
-                  const initial = r.name.charAt(0).toUpperCase();
-                  return (
-                    <div
-                      key={"id" in r ? r.id : `${r.handle}-${i}`}
-                      className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-5 backdrop-blur-md"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#6bffab] to-[#0fb866] font-display text-xs font-bold text-[#04140b]">
-                            {initial}
-                          </span>
-                          <div>
-                            <div className="text-sm font-semibold text-white">{r.name}</div>
-                            <div className="text-[11px] text-primary">{r.handle}</div>
-                          </div>
-                        </div>
-                        <StarRating rating={r.rating} />
-                      </div>
-                      <p className="mt-3 text-sm text-[#8ba095] leading-relaxed">"{r.body}"</p>
-                    </div>
-                  );
-                })
-              )}
+            <div className="lg:col-span-7">
 
-              <ReviewForm />
+              {/* Fixed review viewport */}
+              <div className="h-[620px] overflow-y-auto pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-primary/30">
+                {reviews === null ? (
+                  <div className="flex h-full items-center justify-center">
+                    <span className="text-sm text-[#8ba095]">
+                      Loading reviews…
+                    </span>
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 text-center">
+                    <p className="text-sm text-[#8ba095]">
+                      No reviews yet — be the first to share your experience!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((r, i) => {
+                      const initial = r.name.charAt(0).toUpperCase();
+
+                      return (
+                        <div
+                          key={r.id || `${r.handle}-${i}`}
+                          className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-5 backdrop-blur-md"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#6bffab] to-[#0fb866] font-display text-xs font-bold text-[#04140b]">
+                                {initial}
+                              </span>
+
+                              <div>
+                                <div className="text-sm font-semibold text-white">
+                                  {r.name}
+                                </div>
+
+                                <div className="text-[11px] text-primary">
+                                  {r.handle}
+                                </div>
+                              </div>
+                            </div>
+
+                            <StarRating rating={r.rating} />
+                          </div>
+
+                          <p className="mt-3 text-sm leading-relaxed text-[#8ba095]">
+                            "{r.body}"
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
+
+          {/* Full Width Share Your Experience */}
+          <div className="mt-10">
+            <ReviewForm />
+          </div>
+
         </div>
       </section>
 
@@ -903,8 +966,8 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
                   href={
                     adminSettings.address
                       ? (adminSettings.address.startsWith("http")
-                          ? adminSettings.address  // direct Google Maps link
-                          : `https://maps.google.com/?q=${encodeURIComponent(adminSettings.address)}`)
+                        ? adminSettings.address  // direct Google Maps link
+                        : `https://maps.google.com/?q=${encodeURIComponent(adminSettings.address)}`)
                       : `https://maps.google.com/?q=${encodeURIComponent("AlphaQ Gaming " + adminSettings.city)}`
                   }
                   target="_blank"
@@ -935,6 +998,11 @@ export function LandingContent({ onBook }: { onBook?: () => void }) {
           </div>
         </div>
       </section>
+      <GroupQuoteModal
+        open={quoteOpen}
+        onClose={() => setQuoteOpen(false)}
+        prefillTournament={quotePrefillTournament}
+      />
     </>
   );
 }

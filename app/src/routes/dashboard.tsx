@@ -17,6 +17,7 @@ import {
   User,
   Settings as SettingsIcon,
   ArrowRight,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
@@ -168,6 +169,28 @@ function BookingCard({
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [qr, setQr] = useState("");
+  const [editingUpi, setEditingUpi] = useState(false);
+  const [newUpi, setNewUpi] = useState("");
+  const [busyUpi, setBusyUpi] = useState(false);
+
+  async function handleUpdateUpi() {
+    const trimmed = newUpi.trim();
+    if (!trimmed) {
+      toast.error("Enter your UPI reference.");
+      return;
+    }
+    setBusyUpi(true);
+    try {
+      await payBooking(b.id, trimmed);
+      toast.success("UPI reference updated.");
+      setEditingUpi(false);
+      onReload();
+    } catch {
+      toast.error("Could not update reference. Try again.");
+    } finally {
+      setBusyUpi(false);
+    }
+  }
 
   // When the customer opens "Complete UPI payment", load the UPI settings and
   // build a QR they can scan to pay the booking amount.
@@ -272,9 +295,48 @@ function BookingCard({
       )}
 
       {b.upiRef && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          UPI reference: <span className="font-mono text-foreground">{b.upiRef}</span>
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>
+            UPI reference: <span className="font-mono font-medium text-foreground">{b.upiRef}</span>
+          </span>
+          {(b.status === "pending" || b.status === "awaiting_payment") && (
+            <button
+              onClick={() => {
+                setEditingUpi(!editingUpi);
+                setNewUpi(b.upiRef || "");
+              }}
+              className="inline-flex items-center gap-1 rounded border border-primary/40 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/10 transition"
+              title="Edit UPI reference"
+            >
+              <Pencil className="h-2.5 w-2.5" /> Edit
+            </button>
+          )}
+        </div>
+      )}
+
+      {editingUpi && (b.status === "pending" || b.status === "awaiting_payment") && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/60 p-3">
+          <input
+            value={newUpi}
+            onChange={(e) => setNewUpi(e.target.value)}
+            placeholder="Enter correct UPI reference"
+            className="flex-1 min-w-[12rem] rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary font-mono"
+            autoFocus
+          />
+          <button
+            onClick={handleUpdateUpi}
+            disabled={busyUpi}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {busyUpi ? "Saving…" : "Save"}
+          </button>
+          <button
+            onClick={() => setEditingUpi(false)}
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       {b.status === "awaiting_payment" && (
@@ -383,7 +445,31 @@ function Row({ label, value }: { label: string; value: string }) {
 function DashboardPage() {
   const { user, phone, loading } = useAuth();
   const [bookings, setBookings] = useState<Booking[] | null>(null);
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (hash && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(hash)) {
+        return hash;
+      }
+      const params = new URLSearchParams(window.location.search);
+      const qTab = params.get("tab");
+      if (qTab && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(qTab)) {
+        return qTab;
+      }
+    }
+    return "home";
+  });
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(hash)) {
+        setTab(hash);
+      }
+    };
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
   const [showBook, setShowBook] = useState(false);
   const [myRegs, setMyRegs] = useState<TournamentRegistration[]>([]);
   const [tournamentsMap, setTournamentsMap] = useState<Record<string, Tournament>>({});
@@ -482,18 +568,30 @@ function DashboardPage() {
           setShowBook(true);
           setTab("bookings");
         }}
+        onFood={() => {
+          setTab("food");
+        }}
       />
     );
   } else if (tab === "bookings") {
     section = showBook ? (
       <div>
         <button
-          onClick={() => setShowBook(false)}
+          onClick={() => {
+            setShowBook(false);
+            void reload();
+          }}
           className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-primary"
         >
           ← Back to my bookings
         </button>
-        <BookSetup onBooked={reload} />
+        <BookSetup
+          onBooked={() => void reload()}
+          onViewBookings={() => {
+            setShowBook(false);
+            void reload();
+          }}
+        />
       </div>
     ) : (
       <div>
@@ -558,7 +656,17 @@ function DashboardPage() {
   }
 
   return (
-    <AppShell nav={CUSTOMER_NAV} active={tab} onSelect={setTab}>
+    <AppShell
+      nav={CUSTOMER_NAV}
+      active={tab}
+      onSelect={(t) => {
+        setTab(t);
+        if (t === "bookings") {
+          setShowBook(false);
+          void reload();
+        }
+      }}
+    >
       {section}
     </AppShell>
   );

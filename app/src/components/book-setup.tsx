@@ -25,9 +25,24 @@ function nextDays(n: number): { iso: string; label: string }[] {
 
 type Step = "configure" | "pay" | "done";
 
-export function BookSetup({ onBooked }: { onBooked?: () => void }) {
+export function BookSetup({
+  onBooked,
+  onViewBookings,
+}: {
+  onBooked?: () => void;
+  onViewBookings?: () => void;
+}) {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+
+  function goToBookings() {
+    onBooked?.();
+    if (onViewBookings) {
+      onViewBookings();
+    } else {
+      navigate({ to: "/dashboard" });
+    }
+  }
   const [platform, setPlatform] = useState<"pc" | "ps5">("pc");
   const [date, setDate] = useState(todayISO());
   const [slot, setSlot] = useState<string | null>(null);
@@ -184,7 +199,7 @@ export function BookSetup({ onBooked }: { onBooked?: () => void }) {
           I've paid — submit for approval
         </button>
         <button
-          onClick={() => navigate({ to: "/dashboard" })}
+          onClick={goToBookings}
           className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-foreground"
         >
           I'll pay at the counter instead → go to my bookings
@@ -204,10 +219,13 @@ export function BookSetup({ onBooked }: { onBooked?: () => void }) {
           Pending admin approval. You'll see it confirmed on your dashboard once staff verifies the UPI payment.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link to="/dashboard" className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+          <button
+            onClick={goToBookings}
+            className="rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+          >
             My bookings
-          </Link>
-          <button onClick={reset} className="rounded-md border border-border px-5 py-2.5 text-sm">
+          </button>
+          <button onClick={reset} className="rounded-md border border-border px-5 py-2.5 text-sm transition hover:bg-secondary">
             Book another
           </button>
         </div>

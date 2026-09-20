@@ -2,7 +2,7 @@
 // customer activity (food orders, registrations, rewards), reviews, gallery,
 // and admin settings. Function names are kept stable so pages don't churn.
 
-import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from "./api";
+import { apiGet, apiPost, apiPut, apiDelete, apiUpload, apiPatch } from "./api";
 
 /* ----------------------------------------------------------------- types -- */
 
@@ -37,6 +37,7 @@ export interface Tournament {
   status: TournamentStatus;
   description: string;
   capacity: number;
+  registeredCount?: number;
   createdAt: number;
 }
 export type NewTournament = Omit<Tournament, "id" | "createdAt">;
@@ -46,6 +47,7 @@ export interface TournamentRegistration {
   tournamentId: string;
   playerName: string;
   teamName: string;
+  phone?: string;
   createdAt: number;
 }
 
@@ -175,6 +177,12 @@ export const registerForTournament = (input: {
 
 export const listMyRegistrations = (_userId?: string) =>
   apiGet<TournamentRegistration[]>("/registrations/mine");
+
+export const listTournamentRegistrations = (tournamentId: string) =>
+  apiGet<TournamentRegistration[]>(`/tournaments/${encodeURIComponent(tournamentId)}/registrations`);
+
+export const deleteTournamentRegistration = (id: string) =>
+  apiDelete(`/admin/registrations/${encodeURIComponent(id)}`);
 
 /* ---------------------------------------------------------- leaderboard -- */
 
@@ -336,3 +344,47 @@ export const createUser = (data: {
 }) => apiPost<AdminUser>("/admin/users", data);
 export const setUserRole = (userId: number, role: "admin" | "customer") =>
   apiPost<AdminUser>(`/admin/users/${userId}/role`, { role });
+
+/* --------------------------------------------------------------- group quotes -- */
+
+export interface GroupQuote {
+  id: string;
+  userId: string | null;
+  name: string;
+  phone: string;
+  email: string;
+  groupSize: number;
+  eventType: "birthday" | "group" | "corporate" | "other";
+  preferredDate: string;
+  platform: "pc" | "ps5" | "both";
+  addFood: boolean;
+  addTournament: boolean;
+  message: string;
+  status: "pending" | "contacted" | "confirmed" | "cancelled";
+  createdAt: number;
+}
+
+export interface GroupQuoteInput {
+  name: string;
+  phone: string;
+  email?: string;
+  groupSize: number;
+  eventType: GroupQuote["eventType"];
+  preferredDate?: string;
+  platform: GroupQuote["platform"];
+  addFood: boolean;
+  addTournament: boolean;
+  message?: string;
+}
+
+/** Submit a group/birthday quote request (works for guests + logged-in users). */
+export const submitGroupQuote = (input: GroupQuoteInput) =>
+  apiPost<GroupQuote>("/group-quotes", input);
+
+/** Admin: list all group quote requests. */
+export const listAdminGroupQuotes = () =>
+  apiGet<GroupQuote[]>("/admin/group-quotes");
+
+/** Admin: update the status of a group quote. */
+export const updateGroupQuoteStatus = (id: string, status: GroupQuote["status"]) =>
+  apiPatch<GroupQuote>(`/admin/group-quotes/${id}`, { status });
