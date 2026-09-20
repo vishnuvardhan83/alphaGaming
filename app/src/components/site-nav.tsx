@@ -46,7 +46,7 @@ export function SiteNav() {
 
         {/* Right CTA buttons & Theme Toggle */}
         <div className="hidden items-center gap-3 lg:flex">
-          <ThemeToggle />
+          <ThemeToggle className="hidden" />
 
           {user ? (
             <>
@@ -100,7 +100,7 @@ export function SiteNav() {
 
         {/* Mobile menu button & Theme toggle */}
         <div className="flex items-center gap-2 lg:hidden">
-          <ThemeToggle />
+          <ThemeToggle className="hidden" />
           <button
             className="rounded-md p-2 text-foreground"
             onClick={() => setOpen((v) => !v)}

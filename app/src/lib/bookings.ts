@@ -60,8 +60,10 @@ export async function listMyBookings(_userId?: string): Promise<Booking[]> {
   return apiGet<Booking[]>("/bookings/mine");
 }
 
-export async function cancelBooking(id: string): Promise<void> {
-  await apiPost(`/bookings/${id}/cancel`);
+export async function cancelBooking(id: string, reason?: string): Promise<Booking | void> {
+  return apiPost<Booking>(`/admin/bookings/${id}/cancel`, { reason }).catch(() =>
+    apiPost<Booking>(`/bookings/${id}/cancel`, { reason }),
+  );
 }
 
 /* ---- admin ---- */

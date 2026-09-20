@@ -217,7 +217,7 @@ app.get("/api/auth/me", auth(), (req, res) => {
 /* ------------------------------------------------------------- public ---- */
 
 const PUBLIC_SETTING_KEYS = [
-  "brandName", "whatsapp", "phone", "email", "instagram", "city", "hours", "upiId", "upiName",
+  "brandName", "whatsapp", "phone", "email", "instagram", "city", "hours", "upiId", "upiName", "upiPhone",
   "arenaImage", "appBg", "pcCount", "ps5Count",
 ];
 
@@ -351,9 +351,10 @@ app.post(
   auth(),
   wrap(async (req, res) => {
     const row = await db.get("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
-    if (!row || (row.user_id !== req.user.id && req.user.role !== "admin"))
+    if (!row || (row.user_id !== req.user.id && req.user.role !== "admin" && req.user.role !== "staff"))
       throw new Error("Booking not found.");
-    await db.run("UPDATE bookings SET status = 'cancelled' WHERE id = ?", [row.id]);
+    const reason = req.body.reason ? String(req.body.reason) : (row.user_id === req.user.id ? "Cancelled by customer" : "Cancelled by staff");
+    await db.run("UPDATE bookings SET status = 'cancelled', decision_reason = ? WHERE id = ?", [reason, row.id]);
     res.json(toBooking(await db.get("SELECT * FROM bookings WHERE id = ?", [row.id])));
   }),
 );
@@ -646,6 +647,21 @@ app.post(
     if (!b) throw new Error("Booking not found.");
     await db.run("UPDATE bookings SET status = 'rejected', decision_reason = ? WHERE id = ?", [
       String(req.body.reason || "Rejected by staff"),
+      b.id,
+    ]);
+    res.json(toBooking(await db.get("SELECT * FROM bookings WHERE id = ?", [b.id])));
+  }),
+);
+
+app.post(
+  "/api/admin/bookings/:id/cancel",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const b = await db.get("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
+    if (!b) throw new Error("Booking not found.");
+    const reason = req.body.reason ? String(req.body.reason) : "Cancelled by staff";
+    await db.run("UPDATE bookings SET status = 'cancelled', decision_reason = ? WHERE id = ?", [
+      reason,
       b.id,
     ]);
     res.json(toBooking(await db.get("SELECT * FROM bookings WHERE id = ?", [b.id])));

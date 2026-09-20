@@ -14,6 +14,10 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  if (className.includes("hidden")) {
+    return <div className="hidden" style={{ display: "none" }} aria-hidden="true" />;
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {

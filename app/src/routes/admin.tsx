@@ -32,6 +32,10 @@ import {
   CreditCard,
   BarChart3,
   RotateCcw,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/modal";
@@ -220,6 +224,12 @@ function BookingsTab() {
   const [upiModalBooking, setUpiModalBooking] = useState<Booking | null>(null);
   const [upiInput, setUpiInput] = useState("");
   const [savingUpi, setSavingUpi] = useState(false);
+  const [rejectModalBooking, setRejectModalBooking] = useState<Booking | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [savingReject, setSavingReject] = useState(false);
+  const [cancelModalBooking, setCancelModalBooking] = useState<Booking | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [savingCancel, setSavingCancel] = useState(false);
 
   const reload = () => {
     setBookings(null);
@@ -264,7 +274,6 @@ function BookingsTab() {
 
   const shown = filter === "all" ? bookings : bookings.filter((b) => b.status === filter);
 
-
   async function run(id: string, action: () => Promise<unknown>, ok: string) {
     setBusy(id);
     try {
@@ -282,16 +291,45 @@ function BookingsTab() {
     void run(b.id, () => approveBooking(b.id), "Booking approved — reward points awarded.");
   }
   function onReject(b: Booking) {
-    const reason = window.prompt("Reason for rejecting this booking?", "");
-    if (reason === null) return;
-    void run(b.id, () => rejectBooking(b.id, reason.trim() || "Rejected by staff"), "Booking rejected.");
+    setRejectModalBooking(b);
+    setRejectReason("Slot already booked or overlap with an active session.");
+  }
+  async function handleConfirmReject(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rejectModalBooking) return;
+    setSavingReject(true);
+    try {
+      await rejectBooking(rejectModalBooking.id, rejectReason.trim() || "Rejected by staff");
+      toast.success("Booking rejected. Reason recorded for customer.");
+      setRejectModalBooking(null);
+      reload();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reject booking.");
+    } finally {
+      setSavingReject(false);
+    }
   }
   function onComplete(b: Booking) {
     void run(b.id, () => completeBooking(b.id), "Booking marked completed.");
   }
   function onCancel(b: Booking) {
-    if (!window.confirm("Cancel this booking?")) return;
-    void run(b.id, () => cancelBooking(b.id), "Booking cancelled.");
+    setCancelModalBooking(b);
+    setCancelReason("Cancelled by staff");
+  }
+  async function handleConfirmCancel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cancelModalBooking) return;
+    setSavingCancel(true);
+    try {
+      await cancelBooking(cancelModalBooking.id, cancelReason.trim() || "Cancelled by staff");
+      toast.success("Booking cancelled.");
+      setCancelModalBooking(null);
+      reload();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel booking.");
+    } finally {
+      setSavingCancel(false);
+    }
   }
 
   return (
@@ -435,6 +473,137 @@ function BookingsTab() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Reject Booking Modal with Reason */}
+      <Modal
+        open={Boolean(rejectModalBooking)}
+        onClose={() => {
+          if (!savingReject) setRejectModalBooking(null);
+        }}
+        title={`Reject Booking #${rejectModalBooking?.id}`}
+      >
+        {rejectModalBooking && (
+          <form onSubmit={handleConfirmReject} className="space-y-4">
+            <div className="rounded-xl border border-border bg-background/50 p-3.5 text-xs space-y-1">
+              <p className="font-semibold text-foreground">
+                {setupLabel(rejectModalBooking)} · {rejectModalBooking.date} {rejectModalBooking.slot}
+              </p>
+              <p className="text-muted-foreground">
+                Customer: <strong className="text-foreground">{rejectModalBooking.phone}</strong> · {formatINR(rejectModalBooking.price)}
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                Rejection Reason <span className="text-muted-foreground font-normal">(displayed to customer on their dashboard)</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Explain why this booking is being rejected..."
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none resize-none"
+              />
+            </div>
+
+            {/* Quick chips */}
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Quick reasons:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "Slot already booked or overlap with an active session.",
+                  "UPI payment reference could not be verified.",
+                  "Hardware station currently under maintenance.",
+                  "Arena is reserved for a tournament during this time.",
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setRejectReason(chip)}
+                    className="rounded-md border border-border bg-card/60 px-2 py-1 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground transition cursor-pointer text-left"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                disabled={savingReject}
+                onClick={() => setRejectModalBooking(null)}
+                className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingReject || !rejectReason.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-4 py-2 text-xs font-semibold text-white hover:bg-destructive/90 transition cursor-pointer disabled:opacity-50"
+              >
+                {savingReject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                Confirm Rejection
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Cancel Booking Modal */}
+      <Modal
+        open={Boolean(cancelModalBooking)}
+        onClose={() => {
+          if (!savingCancel) setCancelModalBooking(null);
+        }}
+        title={`Cancel Booking #${cancelModalBooking?.id}`}
+      >
+        {cancelModalBooking && (
+          <form onSubmit={handleConfirmCancel} className="space-y-4">
+            <div className="rounded-xl border border-border bg-background/50 p-3.5 text-xs space-y-1">
+              <p className="font-semibold text-foreground">
+                {setupLabel(cancelModalBooking)} · {cancelModalBooking.date} {cancelModalBooking.slot}
+              </p>
+              <p className="text-muted-foreground">
+                Customer: <strong className="text-foreground">{cancelModalBooking.phone}</strong> · {formatINR(cancelModalBooking.price)}
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-foreground">
+                Cancellation Reason / Note
+              </label>
+              <input
+                type="text"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Cancelled by customer request or slot conflict"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                disabled={savingCancel}
+                onClick={() => setCancelModalBooking(null)}
+                className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+              >
+                Keep Booking
+              </button>
+              <button
+                type="submit"
+                disabled={savingCancel}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-4 py-2 text-xs font-semibold text-white hover:bg-destructive/90 transition cursor-pointer disabled:opacity-50"
+              >
+                {savingCancel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                Confirm Cancellation
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
@@ -1481,6 +1650,7 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   // — UPI / Payment —
   { key: "upiId", label: "UPI ID", hint: "Powers the booking UPI QR code.", placeholder: "alphaq@upi", section: "Payments" },
   { key: "upiName", label: "UPI payee name", hint: "Name shown in the UPI QR.", placeholder: "AlphaQ Gaming" },
+  { key: "upiPhone", label: "UPI phone number", hint: "Direct phone number for GPay/PhonePe payments.", placeholder: "9573976462" },
   // — Setup counts —
   { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability and booking counts.", placeholder: "10", type: "number", section: "Setup counts" },
   { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability and booking counts.", placeholder: "3", type: "number" },
@@ -2071,7 +2241,7 @@ function SettingsTab() {
                 }}
                 className="space-y-4"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className={labelCls}>UPI ID (VPA)</label>
                     <input
@@ -2091,6 +2261,16 @@ function SettingsTab() {
                       placeholder="AlphaQ Gaming"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Business or merchant name shown in banking apps.</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>UPI Phone Number</label>
+                    <input
+                      className={inputCls}
+                      value={values.upiPhone ?? ""}
+                      onChange={(e) => set("upiPhone", e.target.value)}
+                      placeholder="9573976462"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Mobile number for GPay/PhonePe/Paytm direct payments.</p>
                   </div>
                 </div>
 
@@ -2310,6 +2490,7 @@ function UsersTab() {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"customer" | "staff" | "admin">("customer");
   const [saving, setSaving] = useState(false);
 
@@ -2596,7 +2777,25 @@ function UsersTab() {
           </div>
           <div>
             <label className={labelCls}>Password</label>
-            <input type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min 6 characters" required />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                className={`${inputCls} pr-10`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="min 6 characters"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition p-0.5 cursor-pointer"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelCls}>Role</label>

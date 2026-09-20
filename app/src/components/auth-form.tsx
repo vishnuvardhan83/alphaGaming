@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Lock, Phone, User as UserIcon, Loader2 } from "lucide-react";
+import { Lock, Phone, User as UserIcon, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { SetupNotice } from "./setup-notice";
 
@@ -13,6 +13,7 @@ export function AuthForm({ redirectTo = "/dashboard" }: { redirectTo?: string })
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,13 +104,22 @@ export function AuthForm({ redirectTo = "/dashboard" }: { redirectTo?: string })
 
         <Field icon={<Lock className="h-4 w-4" />}>
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="text-muted-foreground hover:text-foreground transition p-0.5 cursor-pointer"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </Field>
 
         <button

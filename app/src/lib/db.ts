@@ -109,6 +109,7 @@ export interface Settings {
   hours: string;
   upiId: string;
   upiName: string;
+  upiPhone?: string;
   arenaImage: string; // URL of the admin-managed "Inside the arena" photo ("" = use bundled default)
   appBg: string; // URL of the dashboard/app background image ("" = use bundled default)
   pcCount: string; // total gaming PCs (string; parse with Number)

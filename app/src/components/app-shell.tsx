@@ -140,7 +140,7 @@ export function AppShell({
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3 sm:gap-4">
-            <ThemeToggle />
+            <ThemeToggle className="hidden" />
             {user && isAdmin && (
               <div className="hidden items-center gap-2 sm:flex">
                 <Link

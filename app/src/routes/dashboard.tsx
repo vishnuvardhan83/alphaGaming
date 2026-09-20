@@ -18,6 +18,8 @@ import {
   Settings as SettingsIcon,
   ArrowRight,
   Pencil,
+  AlertCircle,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
@@ -201,8 +203,9 @@ function BookingCard({
       .then((s) => {
         if (!alive) return;
         setSettings(s);
-        if (s.upiId) {
-          const link = `upi://pay?pa=${encodeURIComponent(s.upiId)}&pn=${encodeURIComponent(
+        const upiTarget = s.upiId || s.upiPhone || s.phone;
+        if (upiTarget) {
+          const link = `upi://pay?pa=${encodeURIComponent(upiTarget)}&pn=${encodeURIComponent(
             s.upiName || "AlphaQ",
           )}&am=${b.price}&cu=INR&tn=${encodeURIComponent("AlphaQ booking " + b.id)}`;
           QRCode.toDataURL(link, {
@@ -225,7 +228,7 @@ function BookingCard({
 
   async function handleCancel() {
     try {
-      await cancelBooking(b.id);
+      await cancelBooking(b.id, "Cancelled by customer");
       onCancelled(b.id);
       toast.success("Booking cancelled.");
     } catch {
@@ -280,7 +283,7 @@ function BookingCard({
           {canCancel && (
             <button
               onClick={handleCancel}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-destructive/50 hover:text-destructive"
+              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-destructive/50 hover:text-destructive cursor-pointer"
             >
               <XCircle className="h-3.5 w-3.5" /> Cancel
             </button>
@@ -288,10 +291,27 @@ function BookingCard({
         </div>
       </div>
 
-      {b.status === "rejected" && b.decisionReason && (
-        <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {b.decisionReason}
-        </p>
+      {b.status === "rejected" && (
+        <div className="mt-3 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-300">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+          <div className="space-y-1 min-w-0">
+            <p className="font-semibold text-sm text-red-400">Booking Rejected by Arena Staff</p>
+            <p className="text-sm text-muted-foreground">
+              <strong className="text text-muted-foreground">Reason:</strong>{" "}
+              {b.decisionReason || "Setup unavailable or slot already filled. Please choose another slot or reach out to staff."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {b.status === "cancelled" && b.decisionReason && (
+        <div className="mt-3 flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <p>
+            <span>Cancellation note: </span>
+            <span className="text-foreground font-medium">{b.decisionReason}</span>
+          </p>
+        </div>
       )}
 
       {b.upiRef && (
@@ -349,52 +369,125 @@ function BookingCard({
               <CreditCard className="h-4 w-4" /> Complete UPI payment
             </button>
           ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Scan the QR with any UPI app, pay{" "}
-                <span className="text-primary">{formatINR(b.price)}</span>, then enter the
-                reference number below.
-              </p>
-              <div className="flex flex-wrap items-center gap-4">
-                {qr ? (
-                  <img src={qr} alt="UPI QR code" className="h-40 w-40 rounded-lg" />
-                ) : (
-                  <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-border text-xs text-muted-foreground">
-                    Loading QR…
+            <div className="space-y-4 rounded-xl border border-primary/25 bg-card/80 p-4 sm:p-5 shadow-sm">
+              <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+                {/* QR Code */}
+                <div className="flex shrink-0 flex-col items-center">
+                  {qr ? (
+                    <img
+                      src={qr}
+                      alt="UPI QR code"
+                      className="h-40 w-40 rounded-lg border border-primary/30 bg-background p-1 shadow-md shadow-primary/10"
+                    />
+                  ) : (
+                    <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-border text-xs text-muted-foreground">
+                      Loading QR…
+                    </div>
+                  )}
+                  <span className="mt-1.5 text-[11px] text-muted-foreground">Scan with any UPI app</span>
+                </div>
+
+                {/* Details & Payment Options */}
+                <div className="flex-1 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Scan the QR code or pay directly using the UPI ID or Phone number below:{" "}
+                    <span className="font-bold text-primary">{formatINR(b.price)}</span>
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* UPI ID */}
+                    <div className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        UPI ID (VPA)
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-foreground">
+                          {settings?.upiId || "—"}
+                        </span>
+                        {settings?.upiId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard?.writeText(settings.upiId);
+                              toast.success("UPI ID copied");
+                            }}
+                            className="text-muted-foreground transition hover:text-primary"
+                            title="Copy UPI ID"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pay to Phone */}
+                    <div className="rounded-lg border border-border bg-background px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Pay to Phone
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-foreground">
+                          {settings?.upiPhone || settings?.phone || "—"}
+                        </span>
+                        {(settings?.upiPhone || settings?.phone) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard?.writeText(settings?.upiPhone || settings?.phone || "");
+                              toast.success("UPI phone number copied");
+                            }}
+                            className="text-muted-foreground transition hover:text-primary"
+                            title="Copy Phone Number"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Payee Name */}
+                    {settings?.upiName && (
+                      <div className="rounded-lg border border-border bg-background px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Payee
+                        </p>
+                        <p className="mt-0.5 text-xs font-medium text-foreground">
+                          {settings.upiName}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                )}
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Pay to</p>
-                  <p className="font-mono text-sm text-foreground">{settings?.upiId || "—"}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">
+
+                  <p className="text-xs text-muted-foreground">
                     Confirmed once staff verifies your payment.
                   </p>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                      value={ref}
+                      onChange={(e) => setRef(e.target.value)}
+                      placeholder="UPI reference / transaction ID"
+                      className="flex-1 min-w-[12rem] rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={handlePay}
+                      disabled={busy || !ref.trim()}
+                      className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-60"
+                    >
+                      {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Submit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPayOpen(false);
+                        setRef("");
+                      }}
+                      className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  value={ref}
-                  onChange={(e) => setRef(e.target.value)}
-                  placeholder="UPI reference / transaction ID"
-                  className="flex-1 min-w-[12rem] rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  onClick={handlePay}
-                  disabled={busy}
-                  className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground disabled:opacity-60"
-                >
-                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Submit
-                </button>
-                <button
-                  onClick={() => {
-                    setPayOpen(false);
-                    setRef("");
-                  }}
-                  className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           )}

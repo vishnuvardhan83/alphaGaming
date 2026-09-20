@@ -68,9 +68,11 @@ export function BookSetup({
 
   // Build the UPI QR once we have a booking + settings.
   useEffect(() => {
-    if (step !== "pay" || !booking || !settings?.upiId) return;
-    const link = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
-      settings.upiName || "AlphaQ",
+    if (step !== "pay" || !booking) return;
+    const upiTarget = settings?.upiId || settings?.upiPhone || settings?.phone;
+    if (!upiTarget) return;
+    const link = `upi://pay?pa=${encodeURIComponent(upiTarget)}&pn=${encodeURIComponent(
+      settings?.upiName || "AlphaQ",
     )}&am=${booking.price}&cu=INR&tn=${encodeURIComponent("AlphaQ booking " + booking.id)}`;
     QRCode.toDataURL(link, { width: 240, margin: 1, color: { dark: "#0b0f0d", light: "#eafff3" } })
       .then(setQr)
@@ -171,15 +173,34 @@ export function BookSetup({
             QR unavailable — use the UPI ID below
           </div>
         )}
-        <button
-          onClick={() => {
-            void navigator.clipboard?.writeText(settings?.upiId || "");
-            toast.success("UPI ID copied");
-          }}
-          className="mx-auto mt-4 flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
-        >
-          <Copy className="h-4 w-4 text-primary" /> {settings?.upiId || "UPI ID unavailable"}
-        </button>
+        <div className="mx-auto mt-4 flex flex-wrap items-center justify-center gap-2">
+          {settings?.upiId && (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(settings.upiId);
+                toast.success("UPI ID copied");
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-mono transition hover:border-primary"
+            >
+              <Copy className="h-3.5 w-3.5 text-primary" />
+              <span>UPI: {settings.upiId}</span>
+            </button>
+          )}
+          {(settings?.upiPhone || settings?.phone) && (
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(settings?.upiPhone || settings?.phone || "");
+                toast.success("UPI phone number copied");
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-mono transition hover:border-primary"
+            >
+              <Copy className="h-3.5 w-3.5 text-primary" />
+              <span>Phone: {settings?.upiPhone || settings?.phone}</span>
+            </button>
+          )}
+        </div>
         <p className="mt-4 text-xs text-muted-foreground">
           Scan with any UPI app (GPay / PhonePe / Paytm), pay, then enter the reference below.
           Your booking is confirmed once staff verifies the payment.

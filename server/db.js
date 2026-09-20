@@ -428,6 +428,7 @@ async function seed() {
     hours: "Tue–Sun · 11:00 AM – 8:00 PM",
     upiId: "alphaq@upi",
     upiName: "AlphaQ Gaming",
+    upiPhone: "9573976462",
     appBg: "",
     pcCount: "10",
     ps5Count: "3",
