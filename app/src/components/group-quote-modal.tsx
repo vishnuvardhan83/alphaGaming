@@ -93,8 +93,8 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
   }
 
   const inputCls =
-    "w-full rounded-xl border border-white/10 bg-[#06090b] px-4 py-2.5 text-sm text-white outline-none placeholder:text-[#8ba095]/60 focus:border-primary/60 transition";
-  const labelCls = "block text-[11px] font-semibold uppercase tracking-wider text-[#8ba095] mb-1";
+    "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-primary/60 transition";
+  const labelCls = "block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1";
 
   return createPortal(
     <div
@@ -104,19 +104,19 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
       aria-modal="true"
     >
       <div
-        className="relative my-auto flex w-full max-w-lg max-h-[88vh] flex-col rounded-2xl border border-white/[0.12] bg-[#0c1114] shadow-2xl card-glow overflow-hidden"
+        className="relative my-auto flex w-full max-w-lg max-h-[88vh] flex-col rounded-2xl border border-border bg-card shadow-2xl card-glow overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Always visible at top */}
-        <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] bg-[#0c1114] p-5 sm:p-6 shrink-0">
+        <div className="flex items-start justify-between gap-4 border-b border-border bg-card p-5 sm:p-6 shrink-0">
           <div>
             <p className="font-display text-[10px] font-semibold uppercase tracking-[0.28em] text-primary">
               Birthdays &amp; Groups
             </p>
-            <h2 className="mt-0.5 font-display text-xl font-bold text-white sm:text-2xl">
+            <h2 className="mt-0.5 font-display text-xl font-bold text-foreground sm:text-2xl">
               Request a group quote
             </h2>
-            <p className="mt-1 text-xs text-[#8ba095]">
+            <p className="mt-1 text-xs text-muted-foreground">
               Fill in the details — we'll tailor a quote and get back to you.
             </p>
           </div>
@@ -124,7 +124,7 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 text-[#8ba095] hover:border-white/20 hover:text-white transition"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-border/80 hover:text-foreground transition cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
@@ -138,14 +138,14 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary">
                 <CheckCircle2 className="h-8 w-8" />
               </span>
-              <h2 className="font-display text-2xl font-bold text-white">Request sent!</h2>
-              <p className="text-sm text-[#8ba095] max-w-xs">
+              <h2 className="font-display text-2xl font-bold text-foreground">Request sent!</h2>
+              <p className="text-sm text-muted-foreground max-w-xs">
                 We've got your group quote request. Our team will reach out within 24 hours to confirm the details.
               </p>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-4 rounded-full bg-primary px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-[#04140b] hover:bg-[#6bffab] transition"
+                className="mt-4 rounded-full bg-primary px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-primary-foreground hover:opacity-90 transition cursor-pointer"
               >
                 Done
               </button>
@@ -162,9 +162,9 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
                       key={t}
                       type="button"
                       onClick={() => set("eventType", t)}
-                      className={`rounded-full border px-4 py-1.5 text-xs font-semibold capitalize transition ${form.eventType === t
+                      className={`rounded-full border px-4 py-1.5 text-xs font-semibold capitalize transition cursor-pointer ${form.eventType === t
                         ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-white/10 bg-white/[0.02] text-[#8ba095] hover:border-white/20 hover:text-white"
+                        : "border-border bg-card/50 text-muted-foreground hover:border-border/80 hover:text-foreground"
                         }`}
                     >
                       {t === "birthday" ? "🎂 Birthday" : t === "group" ? "👾 Group" : t === "corporate" ? "🏢 Corporate" : "✨ Other"}
@@ -201,7 +201,7 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
               {/* Email */}
               {!user && (
                 <div>
-                  <label className={labelCls}>Email <span className="normal-case text-white/30">(optional)</span></label>
+                  <label className={labelCls}>Email <span className="normal-case text-muted-foreground/60">(optional)</span></label>
                   <input
                     className={inputCls}
                     type="email"
@@ -254,9 +254,9 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
                       key={p}
                       type="button"
                       onClick={() => set("platform", p)}
-                      className={`flex-1 rounded-xl border py-2.5 text-xs font-semibold uppercase tracking-wider transition ${form.platform === p
+                      className={`flex-1 rounded-xl border py-2.5 text-xs font-semibold uppercase tracking-wider transition cursor-pointer ${form.platform === p
                         ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-white/10 bg-white/[0.02] text-[#8ba095] hover:text-white"
+                        : "border-border bg-card/50 text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       {p === "pc" ? "PC" : p === "ps5" ? "PS5" : "PC + PS5"}
@@ -272,9 +272,9 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
                   <button
                     type="button"
                     onClick={() => set("addFood", !form.addFood)}
-                    className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${form.addFood
+                    className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${form.addFood
                       ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-white/10 bg-white/[0.02] text-[#8ba095] hover:text-white"
+                      : "border-border bg-card/50 text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     <Coffee className="h-3.5 w-3.5" /> Food & drinks
@@ -282,9 +282,9 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
                   <button
                     type="button"
                     onClick={() => set("addTournament", !form.addTournament)}
-                    className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${form.addTournament
+                    className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${form.addTournament
                       ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-white/10 bg-white/[0.02] text-[#8ba095] hover:text-white"
+                      : "border-border bg-card/50 text-muted-foreground hover:text-foreground"
                       }`}
                   >
                     <Trophy className="h-3.5 w-3.5" /> Mini-tournament
@@ -308,7 +308,7 @@ export function GroupQuoteModal({ open, onClose, prefillTournament = false }: Pr
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full flex items-center justify-center gap-2 rounded-full bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab] disabled:opacity-60 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-full bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_4px_20px_rgba(30,224,122,0.4)] transition hover:opacity-90 disabled:opacity-60 cursor-pointer"
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                 Send quote request

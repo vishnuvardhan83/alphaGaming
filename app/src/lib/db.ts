@@ -132,8 +132,11 @@ export interface AdminUser {
   id: number;
   phone: string;
   name: string;
+  email?: string | null;
   role: string;
   rewardPoints: number;
+  blocked?: boolean;
+  createdAt?: number;
 }
 
 /* ----------------------------------------------------------------- games -- */
@@ -340,10 +343,14 @@ export const createUser = (data: {
   phone: string;
   name: string;
   password: string;
-  role: "admin" | "customer";
+  role: "admin" | "staff" | "customer";
 }) => apiPost<AdminUser>("/admin/users", data);
-export const setUserRole = (userId: number, role: "admin" | "customer") =>
+export const setUserRole = (userId: number, role: "admin" | "staff" | "customer") =>
   apiPost<AdminUser>(`/admin/users/${userId}/role`, { role });
+export const setUserBlocked = (userId: number, blocked: boolean) =>
+  apiPost<AdminUser>(`/admin/users/${userId}/block`, { blocked });
+export const deleteUser = (userId: number) =>
+  apiDelete(`/admin/users/${userId}`);
 
 /* --------------------------------------------------------------- group quotes -- */
 

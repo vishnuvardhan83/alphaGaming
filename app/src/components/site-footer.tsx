@@ -43,20 +43,20 @@ export function SiteFooter() {
 
   return (
     <>
-      <footer className="border-t border-white/[0.08] bg-[#06090b] text-[#e9f2ec]">
+      <footer className="border-t border-border bg-card/60 text-foreground">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-12">
             {/* Column 1: Brand & Bio */}
             <div className="lg:col-span-5">
               <Link to="/" className="inline-flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#6bffab] to-[#0fb866] font-display text-sm font-extrabold text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.45)]">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary font-display text-sm font-extrabold text-primary-foreground shadow-[0_6px_20px_rgba(30,224,122,0.45)]">
                   AQ
                 </span>
-                <span className="font-display text-2xl font-bold tracking-wider text-white">
+                <span className="font-display text-2xl font-bold tracking-wider text-foreground">
                   ALPHAQ GAMING
                 </span>
               </Link>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-[#8ba095]">
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
                 Indore's next-level gaming café. High-end PC &amp; PS5 setups, low-ping internet and a clean, family-friendly arena.
               </p>
               {/* Social icons */}
@@ -66,21 +66,21 @@ export function SiteFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Instagram"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-white/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
                 >
                   <InstagramIcon className="h-4 w-4" />
                 </a>
                 <a
                   href={`mailto:${email}`}
                   aria-label="Email"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-white/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
                 >
                   <Mail className="h-4 w-4" />
                 </a>
                 <a
                   href={`tel:${phone}`}
                   aria-label="Phone"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-white/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/50 hover:text-primary"
                 >
                   <Phone className="h-4 w-4" />
                 </a>
@@ -96,37 +96,37 @@ export function SiteFooter() {
 
             {/* Column 2: Explore */}
             <div className="lg:col-span-2">
-              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-[#8ba095]">
+              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 Explore
               </h3>
               <ul className="mt-4 space-y-2.5 text-sm">
                 <li>
-                  <a href="#battlestation" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#battlestation" className="text-muted-foreground transition hover:text-foreground">
                     Setups
                   </a>
                 </li>
                 <li>
-                  <a href="#pricing" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#pricing" className="text-muted-foreground transition hover:text-foreground">
                     Pricing
                   </a>
                 </li>
                 <li>
-                  <a href="#games" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#games" className="text-muted-foreground transition hover:text-foreground">
                     Games
                   </a>
                 </li>
                 <li>
-                  <a href="#food" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#food" className="text-muted-foreground transition hover:text-foreground">
                     Food
                   </a>
                 </li>
                 <li>
-                  <a href="#tournaments" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#tournaments" className="text-muted-foreground transition hover:text-foreground">
                     Events
                   </a>
                 </li>
                 <li>
-                  <a href="#visit" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#visit" className="text-muted-foreground transition hover:text-foreground">
                     Visit
                   </a>
                 </li>
@@ -135,27 +135,27 @@ export function SiteFooter() {
 
             {/* Column 3: Account */}
             <div className="lg:col-span-2">
-              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-[#8ba095]">
+              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 Account
               </h3>
               <ul className="mt-4 space-y-2.5 text-sm">
                 <li>
-                  <Link to="/auth" className="text-[#8ba095] transition hover:text-white">
+                  <Link to="/auth" className="text-muted-foreground transition hover:text-foreground">
                     Login
                   </Link>
                 </li>
                 <li>
-                  <Link to="/book" className="text-[#8ba095] transition hover:text-white">
+                  <Link to="/book" className="text-muted-foreground transition hover:text-foreground">
                     Book a setup
                   </Link>
                 </li>
                 <li>
-                  <a href="#food" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#food" className="text-muted-foreground transition hover:text-foreground">
                     Order food
                   </a>
                 </li>
                 <li>
-                  <a href="#tournaments" className="text-[#8ba095] transition hover:text-white">
+                  <a href="#tournaments" className="text-muted-foreground transition hover:text-foreground">
                     Tournaments
                   </a>
                 </li>
@@ -164,10 +164,10 @@ export function SiteFooter() {
 
             {/* Column 4: Visit Us */}
             <div className="lg:col-span-3">
-              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-[#8ba095]">
+              <h3 className="font-display text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 Visit Us
               </h3>
-              <ul className="mt-4 space-y-3 text-sm text-[#8ba095]">
+              <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2.5">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <span>{address || city + ", India"}</span>
@@ -189,14 +189,14 @@ export function SiteFooter() {
           </div>
 
           {/* Bottom row */}
-          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.08] pt-6 sm:flex-row text-xs text-[#8ba095]">
+          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row text-xs text-muted-foreground">
             <p>© {currentYear} {BRAND.full} · Est. {BRAND.est} · {city}</p>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-white transition">Privacy</a>
+              <a href="#" className="hover:text-foreground transition">Privacy</a>
               <span>·</span>
-              <a href="#" className="hover:text-white transition">Terms</a>
+              <a href="#" className="hover:text-foreground transition">Terms</a>
               <span>·</span>
-              <a href="#" className="hover:text-white transition">Refund policy</a>
+              <a href="#" className="hover:text-foreground transition">Refund policy</a>
             </div>
           </div>
         </div>

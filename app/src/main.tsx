@@ -20,8 +20,12 @@ declare module "@tanstack/react-router" {
   }
 }
 
+import { ThemeProvider } from "./lib/theme";
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
   </StrictMode>,
 );

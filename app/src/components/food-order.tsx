@@ -41,6 +41,22 @@ function FoodImage() {
   );
 }
 
+function FoodItemPhoto({ src, name }: { src?: string; name: string }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return <FoodImage />;
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      loading="lazy"
+      onError={() => setError(true)}
+      className="aspect-video w-full rounded-lg object-cover bg-muted"
+    />
+  );
+}
+
 export function FoodOrder() {
   const { user, phone } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -252,16 +268,7 @@ export function FoodOrder() {
                     key={item.id}
                     className="flex flex-col rounded-xl border border-border bg-card p-3 card-glow"
                   >
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        loading="lazy"
-                        className="aspect-video w-full rounded-lg object-cover"
-                      />
-                    ) : (
-                      <FoodImage />
-                    )}
+                    <FoodItemPhoto src={item.image} name={item.name} />
                     <p className="mt-3 font-medium leading-tight">{item.name}</p>
                     <p className="mt-1 font-display font-bold text-primary">
                       {formatINR(item.price)}

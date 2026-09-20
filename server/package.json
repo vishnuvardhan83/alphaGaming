@@ -6,7 +6,7 @@
   "description": "AlphaQ Gaming backend — Express + MySQL (SQLite fallback): normal login, bookings, UPI approval, rewards, reviews.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node --watch index.js",
     "seed": "node db.js --seed",
     "db": "node inspect.js"
   },

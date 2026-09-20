@@ -4,6 +4,7 @@ import { LogOut, Menu, X, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getSettings } from "@/lib/db";
 import { AqEmblem } from "@/components/aq-emblem";
+import { ThemeToggle } from "@/components/theme-toggle";
 import heroImg from "@/assets/hero-arena.jpg";
 
 export interface ShellNavItem {
@@ -139,6 +140,7 @@ export function AppShell({
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             {user && isAdmin && (
               <div className="hidden items-center gap-2 sm:flex">
                 <Link

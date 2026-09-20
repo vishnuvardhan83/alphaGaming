@@ -42,6 +42,8 @@ const publicUser = (u) => ({
   email: u.email || null,
   role: u.role,
   rewardPoints: u.reward_points ?? 0,
+  blocked: !!u.blocked,
+  createdAt: u.created_at,
 });
 
 const toBooking = (b) => ({
@@ -137,6 +139,7 @@ function auth(required = true) {
       const payload = jwt.verify(token, JWT_SECRET);
       const u = await db.get("SELECT * FROM users WHERE id = ?", [payload.id]);
       if (!u) return res.status(401).json({ error: "Session expired." });
+      if (u.blocked) return res.status(403).json({ error: "Your account has been suspended. Please contact AlphaQ staff." });
       req.user = u;
       next();
     } catch {
@@ -201,6 +204,8 @@ app.post(
     const u = await db.get("SELECT * FROM users WHERE phone = ?", [phone]);
     if (!u || !bcrypt.compareSync(password, u.password_hash))
       throw new Error("Incorrect phone number or password.");
+    if (u.blocked)
+      throw new Error("Your account has been suspended. Please contact AlphaQ staff.");
     res.json({ token: sign(u), user: publicUser(u) });
   }),
 );
@@ -600,10 +605,10 @@ app.post(
     const body = String(req.body.body || "").trim();
     if (!body) throw new Error("Please write your review.");
     await db.run(
-      "INSERT INTO reviews(user_id, name, handle, rating, body, verified, approved, created_at) VALUES(?,?,?,?,?,1,0,?)",
+      "INSERT INTO reviews(user_id, name, handle, rating, body, verified, approved, created_at) VALUES(?,?,?,?,?,1,1,?)",
       [req.user.id, req.user.name, "@" + req.user.phone.slice(-4), rating, body, now()],
     );
-    res.json({ ok: true, message: "Thanks! Your review will appear once approved." });
+    res.json({ ok: true, message: "Thanks! Your review is now live." });
   }),
 );
 
@@ -1037,18 +1042,53 @@ app.post(
   }),
 );
 
-// Change a user's role (grant/revoke admin).
+// Change a user's role (admin, staff, customer).
 app.post(
   "/api/admin/users/:id/role",
   ...adminOnly,
   wrap(async (req, res) => {
-    const role = req.body.role === "admin" ? "admin" : "customer";
+    const allowed = ["admin", "staff", "customer"];
+    const role = allowed.includes(req.body.role) ? req.body.role : "customer";
     const u = await db.get("SELECT * FROM users WHERE id = ?", [req.params.id]);
     if (!u) throw new Error("User not found.");
     if (u.id === req.user.id && role !== "admin")
-      throw new Error("You can't remove your own admin access.");
+      throw new Error("You cannot remove your own admin access.");
     await db.run("UPDATE users SET role = ? WHERE id = ?", [role, u.id]);
     res.json(publicUser(await db.get("SELECT * FROM users WHERE id = ?", [u.id])));
+  }),
+);
+
+// Block or unblock a user.
+app.post(
+  "/api/admin/users/:id/block",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const u = await db.get("SELECT * FROM users WHERE id = ?", [req.params.id]);
+    if (!u) throw new Error("User not found.");
+    if (u.id === req.user.id)
+      throw new Error("You cannot block your own admin account.");
+    const blocked = req.body.blocked === undefined ? (u.blocked ? 0 : 1) : req.body.blocked ? 1 : 0;
+    await db.run("UPDATE users SET blocked = ? WHERE id = ?", [blocked, u.id]);
+    res.json(publicUser(await db.get("SELECT * FROM users WHERE id = ?", [u.id])));
+  }),
+);
+
+// Delete a user.
+app.delete(
+  "/api/admin/users/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const u = await db.get("SELECT * FROM users WHERE id = ?", [req.params.id]);
+    if (!u) throw new Error("User not found.");
+    if (u.id === req.user.id)
+      throw new Error("You cannot delete your own admin account.");
+    await db.run("DELETE FROM rewards_ledger WHERE user_id = ?", [u.id]).catch(() => {});
+    await db.run("DELETE FROM registrations WHERE user_id = ?", [u.id]).catch(() => {});
+    await db.run("DELETE FROM food_orders WHERE user_id = ?", [u.id]).catch(() => {});
+    await db.run("DELETE FROM bookings WHERE user_id = ?", [u.id]).catch(() => {});
+    await db.run("DELETE FROM reviews WHERE user_id = ?", [u.id]).catch(() => {});
+    await db.run("DELETE FROM users WHERE id = ?", [u.id]);
+    res.json({ ok: true });
   }),
 );
 app.post(

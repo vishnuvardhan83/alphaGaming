@@ -23,6 +23,15 @@ import {
   Home,
   Pencil,
   Phone,
+  Ban,
+  X,
+  Check,
+  Building,
+  MapPin,
+  Palette,
+  CreditCard,
+  BarChart3,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/modal";
@@ -32,6 +41,7 @@ import { SetupNotice } from "@/components/setup-notice";
 import { useAuth } from "@/lib/auth";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
 import { LandingContent } from "@/components/landing-content";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   listAllBookings,
   approveBooking,
@@ -76,6 +86,8 @@ import {
   adjustReward,
   createUser,
   setUserRole,
+  setUserBlocked,
+  deleteUser,
   type Game,
   type FoodItem,
   type Tournament,
@@ -584,6 +596,7 @@ function GamesTab() {
 function FoodTab() {
   const [items, setItems] = useState<FoodItem[] | null>(null);
   const [open, setOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState(0);
@@ -598,6 +611,28 @@ function FoodTab() {
     void listFood().then(setItems);
   };
   useEffect(reload, []);
+
+  function startAdd() {
+    setEditingItem(null);
+    setName("");
+    setCategory("");
+    setPrice(0);
+    setSortOrder(items ? items.length : 0);
+    setActive(true);
+    setImage("");
+    setOpen(true);
+  }
+
+  function startEdit(f: FoodItem) {
+    setEditingItem(f);
+    setName(f.name);
+    setCategory(f.category);
+    setPrice(f.price);
+    setSortOrder(f.sortOrder);
+    setActive(f.active);
+    setImage(f.image || "");
+    setOpen(true);
+  }
 
   async function onImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -615,7 +650,7 @@ function FoodTab() {
     }
   }
 
-  async function add(e: React.FormEvent) {
+  async function saveItem(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("Name is required.");
@@ -623,25 +658,31 @@ function FoodTab() {
     }
     setSaving(true);
     try {
-      await createFood({
-        name: name.trim(),
-        category: category.trim(),
-        price: Number(price) || 0,
-        image,
-        active,
-        sortOrder: Number(sortOrder) || 0,
-      });
-      toast.success("Item added.");
-      setName("");
-      setCategory("");
-      setPrice(0);
-      setSortOrder(0);
-      setActive(true);
-      setImage("");
+      if (editingItem) {
+        await updateFood(editingItem.id, {
+          name: name.trim(),
+          category: category.trim(),
+          price: Number(price) || 0,
+          image,
+          active,
+          sortOrder: Number(sortOrder) || 0,
+        });
+        toast.success("Food item updated.");
+      } else {
+        await createFood({
+          name: name.trim(),
+          category: category.trim(),
+          price: Number(price) || 0,
+          image,
+          active,
+          sortOrder: Number(sortOrder) || 0,
+        });
+        toast.success("Item added.");
+      }
       setOpen(false);
       reload();
     } catch {
-      toast.error("Couldn't add item.");
+      toast.error(editingItem ? "Couldn't update item." : "Couldn't add item.");
     } finally {
       setSaving(false);
     }
@@ -657,6 +698,7 @@ function FoodTab() {
   }
 
   async function remove(f: FoodItem) {
+    if (!confirm(`Delete "${f.name}" from food menu?`)) return;
     try {
       await deleteFood(f.id);
       setItems((prev) => (prev ? prev.filter((x) => x.id !== f.id) : prev));
@@ -668,7 +710,7 @@ function FoodTab() {
 
   return (
     <div className="space-y-4">
-      <ListHeader title="Food menu" addLabel="Add item" onAdd={() => setOpen(true)} />
+      <ListHeader title="Food menu" addLabel="Add item" onAdd={startAdd} />
       <div className="space-y-3">
         {items === null ? (
           <Spinner />
@@ -678,21 +720,61 @@ function FoodTab() {
           items.map((f) => (
             <div
               key={f.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
+              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 transition hover:border-primary/30"
             >
-              <div>
-                <p className="font-display text-sm font-semibold">
-                  {f.name} · {formatINR(f.price)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {f.category || "Uncategorised"} · #{f.sortOrder}
-                </p>
+              <div className="flex items-center gap-3.5">
+                {f.image ? (
+                  <img
+                    src={f.image}
+                    alt={f.name}
+                    className="h-14 w-14 rounded-lg border border-border object-cover shrink-0 bg-muted"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border bg-muted/60 text-muted-foreground shrink-0">
+                    <UtensilsCrossed className="h-6 w-6 opacity-40" />
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-display text-sm font-semibold text-foreground">
+                      {f.name}
+                    </p>
+                    <span className="font-display text-xs font-bold text-primary">
+                      {formatINR(f.price)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {f.category || "Uncategorised"} · Order: #{f.sortOrder}
+                    {f.image && <span className="ml-2 text-primary font-medium">✓ Photo set</span>}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => toggle(f)} className={f.active ? primaryBtn : ghostBtn}>
+                <button
+                  type="button"
+                  onClick={() => toggle(f)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition ${
+                    f.active
+                      ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/20"
+                      : "border-border bg-muted/50 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
                   {f.active ? "Active" : "Inactive"}
                 </button>
-                <button onClick={() => remove(f)} className={dangerBtn} aria-label="Delete item">
+                <button
+                  type="button"
+                  onClick={() => startEdit(f)}
+                  className={`${ghostBtn} text-xs px-2.5 py-1.5`}
+                  title="Edit item & photo"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(f)}
+                  className={dangerBtn}
+                  aria-label="Delete item"
+                >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -701,44 +783,71 @@ function FoodTab() {
         )}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Add item">
-        <form onSubmit={add} className="space-y-4">
+      <Modal open={open} onClose={() => setOpen(false)} title={editingItem ? "Edit food item" : "Add item"}>
+        <form onSubmit={saveItem} className="space-y-4">
           <div>
             <label className={labelCls}>Name</label>
-            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Chicken wings" />
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Chicken wings" required />
           </div>
           <div>
             <label className={labelCls}>Category</label>
-            <input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Snacks" />
+            <input className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Snacks" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Price (₹)</label>
+              <input type="number" min={0} className={inputCls} value={price} onChange={(e) => setPrice(Number(e.target.value))} required />
+            </div>
+            <div>
+              <label className={labelCls}>Sort order</label>
+              <input type="number" min={0} className={inputCls} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+            </div>
           </div>
           <div>
-            <label className={labelCls}>Price (₹)</label>
-            <input type="number" min={0} className={inputCls} value={price} onChange={(e) => setPrice(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className={labelCls}>Sort order</label>
-            <input type="number" min={0} className={inputCls} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className={labelCls}>Photo (optional)</label>
+            <label className={labelCls}>Photo</label>
             {image && (
-              <img
-                src={image}
-                alt="preview"
-                className="mt-1 h-28 w-full rounded-md border border-border object-cover"
-              />
+              <div className="relative mt-1 mb-2">
+                <img
+                  src={image}
+                  alt="preview"
+                  className="h-32 w-full rounded-lg border border-border object-cover bg-muted"
+                />
+                <button
+                  type="button"
+                  onClick={() => setImage("")}
+                  className="absolute top-2 right-2 rounded-full bg-black/75 p-1.5 text-white hover:bg-black transition cursor-pointer"
+                  title="Remove photo"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             )}
-            <label className={`${ghostBtn} mt-2 inline-flex cursor-pointer items-center gap-2`}>
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {uploading ? "Uploading…" : image ? "Change photo" : "Upload photo"}
-              <input type="file" accept="image/*" className="hidden" onChange={onImageFile} disabled={uploading} />
-            </label>
+            <div className="flex flex-col sm:flex-row gap-2 mt-1">
+              <label className={`${ghostBtn} inline-flex cursor-pointer items-center justify-center gap-2 text-xs shrink-0`}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? "Uploading…" : image ? "Change file" : "Upload file"}
+                <input type="file" accept="image/*" className="hidden" onChange={onImageFile} disabled={uploading} />
+              </label>
+              <input
+                className={inputCls + " text-xs"}
+                placeholder="Or paste image URL (https://... or /uploads/...)"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+              />
+            </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> Active
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={active}
+              onChange={(e) => setActive(e.target.checked)}
+              className="accent-primary"
+            />
+            <span>Active on customer menu</span>
           </label>
           <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add item
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingItem ? <Save className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {editingItem ? "Save changes" : "Add item"}
           </button>
         </form>
       </Modal>
@@ -1390,11 +1499,90 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   { key: "statTitles", label: "Stat: Game titles count", placeholder: "7+" },
 ];
 
+type SettingsSectionKey = "brand" | "venue" | "theme" | "pricing" | "payments" | "stats";
+
+interface SettingsNavSection {
+  key: SettingsSectionKey;
+  label: string;
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const SETTINGS_NAV_SECTIONS: SettingsNavSection[] = [
+  {
+    key: "brand",
+    label: "Brand & Contact",
+    subtitle: "Name, phone, email & social links",
+    icon: Building,
+  },
+  {
+    key: "venue",
+    label: "Venue & Arena",
+    subtitle: "Address, timings & arena photo",
+    icon: MapPin,
+  },
+  {
+    key: "theme",
+    label: "Theme & Look",
+    subtitle: "Color palette & dashboard wallpaper",
+    icon: Palette,
+  },
+  {
+    key: "pricing",
+    label: "Setups & Pricing",
+    subtitle: "PC/PS5 inventory & hourly pass rates",
+    icon: Monitor,
+  },
+  {
+    key: "payments",
+    label: "Payments & UPI",
+    subtitle: "UPI ID & payee for booking QR",
+    icon: CreditCard,
+  },
+  {
+    key: "stats",
+    label: "Stats & Metrics",
+    subtitle: "Refresh rate, ping & titles counter",
+    icon: BarChart3,
+  },
+];
+
 function SettingsTab() {
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>("brand");
   const [values, setValues] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingArena, setUploadingArena] = useState(false);
   const [uploadingBg, setUploadingBg] = useState(false);
+
+  useEffect(() => {
+    void getAdminSettings()
+      .then((s) => setValues(s))
+      .catch(() => {
+        setValues({});
+        toast.error("Couldn't load settings.");
+      });
+  }, []);
+
+  if (values === null) return <Spinner />;
+
+  function set(key: string, v: string) {
+    setValues((prev) => ({ ...(prev ?? {}), [key]: v }));
+  }
+
+  async function saveSection(sectionLabel: string) {
+    setSaving(true);
+    try {
+      const partial: Record<string, string> = {};
+      for (const f of SETTINGS_FIELDS) partial[f.key] = values?.[f.key] ?? "";
+      const next = await updateSettings(partial);
+      setValues(next);
+      toast.success(`${sectionLabel} saved.`);
+    } catch {
+      toast.error("Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function onArenaFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1430,7 +1618,6 @@ function SettingsTab() {
   }
 
   async function onResetBg() {
-    if (!window.confirm("Reset dashboard background to the default bundled image?")) return;
     setUploadingBg(true);
     try {
       await updateSettings({ appBg: "" });
@@ -1444,140 +1631,583 @@ function SettingsTab() {
     }
   }
 
-  useEffect(() => {
-    void getAdminSettings()
-      .then((s) => setValues(s))
-      .catch(() => {
-        setValues({});
-        toast.error("Couldn't load settings.");
-      });
-  }, []);
-
-  if (values === null) return <Spinner />;
-
-  function set(key: string, v: string) {
-    setValues((prev) => ({ ...(prev ?? {}), [key]: v }));
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const partial: Record<string, string> = {};
-      for (const f of SETTINGS_FIELDS) partial[f.key] = values?.[f.key] ?? "";
-      const next = await updateSettings(partial);
-      setValues(next);
-      toast.success("Settings saved.");
-    } catch {
-      toast.error("Save failed.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <div className="mx-auto max-w-2xl">
-      <FormCard title="Arena settings">
-        <form onSubmit={save} className="space-y-6">
-          {(() => {
-            let lastSection = "";
-            return SETTINGS_FIELDS.map((f) => {
-              const showHeader = f.section && f.section !== lastSection;
-              if (showHeader) lastSection = f.section!;
-              const isFullWidth = f.key === "brandName" || f.key === "address";
-              const isTextarea = f.key === "address";
-              return (
-                <div key={f.key}>
-                  {showHeader && (
-                    <p className="mb-3 mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 border-b border-border pb-1">
-                      {f.section}
-                    </p>
-                  )}
-                  <div className={isFullWidth ? "col-span-2" : ""}>
-                    <label className={labelCls}>{f.label}</label>
-                    {isTextarea ? (
-                      <textarea
-                        rows={3}
-                        className={`${inputCls} resize-none`}
-                        value={values[f.key] ?? ""}
-                        onChange={(e) => set(f.key, e.target.value)}
-                        placeholder={f.placeholder}
-                      />
-                    ) : (
-                      <input
-                        type={f.type ?? "text"}
-                        className={inputCls}
-                        value={values[f.key] ?? ""}
-                        onChange={(e) => set(f.key, e.target.value)}
-                        placeholder={f.placeholder}
-                      />
-                    )}
-                    {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
-                  </div>
-                </div>
-              );
-            });
-          })()}
-          <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save settings
-          </button>
-        </form>
-      </FormCard>
-
-      <div className="mt-6">
-        <FormCard title="Arena image">
-          <p className="text-xs text-muted-foreground">
-            The "Inside the AlphaQ arena" photo on the landing page. Upload to replace it.
-          </p>
-          {values.arenaImage ? (
-            <img
-              src={values.arenaImage}
-              alt="Current arena"
-              className="mt-3 h-40 w-full rounded-lg border border-border object-cover"
-            />
-          ) : (
-            <p className="mt-3 text-xs text-muted-foreground">Using the bundled default image.</p>
-          )}
-          <label className={`${ghostBtn} mt-4 inline-flex cursor-pointer items-center gap-2`}>
-            {uploadingArena ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {uploadingArena ? "Uploading…" : "Upload new arena image"}
-            <input type="file" accept="image/*" className="hidden" onChange={onArenaFile} disabled={uploadingArena} />
-          </label>
-        </FormCard>
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-xl font-bold text-foreground">Arena Settings</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Configure branding, venue information, appearance themes, pricing tiers, and payments.
+        </p>
       </div>
 
-      <div className="mt-6 hidden">
-        <FormCard title="Dashboard background">
-          <p className="text-xs text-muted-foreground">
-            Background image behind the logged-in dashboard/portal. Upload to replace it.
-          </p>
-          {values.appBg ? (
-            <img
-              src={values.appBg}
-              alt="Current background"
-              className="mt-3 h-40 w-full rounded-lg border border-border object-cover"
-            />
-          ) : (
-            <p className="mt-3 text-xs text-muted-foreground">Using the bundled default image.</p>
-          )}
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className={`${ghostBtn} inline-flex cursor-pointer items-center gap-2`}>
-              {uploadingBg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {uploadingBg ? "Uploading…" : "Upload background image"}
-              <input type="file" accept="image/*" className="hidden" onChange={onBgFile} disabled={uploadingBg} />
-            </label>
-            {values.appBg && (
-              <button
-                type="button"
-                onClick={onResetBg}
-                disabled={uploadingBg}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive hover:border-destructive/40 transition"
-              >
-                Reset to default
-              </button>
-            )}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Child Side Menu Navigation */}
+        <aside className="md:col-span-4 lg:col-span-3">
+          <div className="sticky top-20 flex md:flex-col gap-1.5 overflow-x-auto pb-2 md:pb-0 rounded-2xl border border-border bg-card p-2">
+            {SETTINGS_NAV_SECTIONS.map((sec) => {
+              const Icon = sec.icon;
+              const isActive = activeSection === sec.key;
+              return (
+                <button
+                  key={sec.key}
+                  type="button"
+                  onClick={() => setActiveSection(sec.key)}
+                  className={`group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition cursor-pointer shrink-0 md:shrink ${
+                    isActive
+                      ? "border border-primary/40 bg-primary/10 text-primary shadow-[0_0_12px_rgba(30,224,122,0.1)]"
+                      : "border border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"
+                  }`}
+                >
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                      isActive
+                        ? "bg-primary text-black font-bold"
+                        : "bg-background border border-border group-hover:border-primary/40"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-xs font-bold leading-tight truncate">{sec.label}</p>
+                    <p className="hidden lg:block text-[10px] text-muted-foreground opacity-80 leading-tight mt-0.5 truncate">
+                      {sec.subtitle}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        </FormCard>
+        </aside>
+
+        {/* Child Render Panel */}
+        <main className="md:col-span-8 lg:col-span-9 space-y-6">
+          {/* SECTION: Brand & Contact */}
+          {activeSection === "brand" && (
+            <FormCard title="Brand & Contact">
+              <p className="text-xs text-muted-foreground mb-4">
+                Public branding and customer support contacts shown in headers, footers, and quote receipts.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveSection("Brand & Contact");
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className={labelCls}>Brand name</label>
+                  <input
+                    className={inputCls}
+                    value={values.brandName ?? ""}
+                    onChange={(e) => set("brandName", e.target.value)}
+                    placeholder="AlphaQ Gaming"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Contact Phone</label>
+                    <input
+                      className={inputCls}
+                      value={values.phone ?? ""}
+                      onChange={(e) => set("phone", e.target.value)}
+                      placeholder="+91 98765 43210"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Support Email</label>
+                    <input
+                      type="email"
+                      className={inputCls}
+                      value={values.email ?? ""}
+                      onChange={(e) => set("email", e.target.value)}
+                      placeholder="hello@alphaq.gg"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Instagram handle</label>
+                    <input
+                      className={inputCls}
+                      value={values.instagram ?? ""}
+                      onChange={(e) => set("instagram", e.target.value)}
+                      placeholder="@alphaqgaming"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>City / Area</label>
+                    <input
+                      className={inputCls}
+                      value={values.city ?? ""}
+                      onChange={(e) => set("city", e.target.value)}
+                      placeholder="Indore, Madhya Pradesh"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className={`${primaryBtn} inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer disabled:opacity-50`}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Brand &amp; Contact
+                  </button>
+                </div>
+              </form>
+            </FormCard>
+          )}
+
+          {/* SECTION: Venue & Arena */}
+          {activeSection === "venue" && (
+            <div className="space-y-6">
+              <FormCard title="Venue & Location">
+                <p className="text-xs text-muted-foreground mb-4">
+                  Arena operating address, Google Maps location share URL, and opening schedules.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void saveSection("Venue Details");
+                  }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className={labelCls}>Full Address / Google Maps Share Link</label>
+                    <textarea
+                      rows={3}
+                      className={`${inputCls} resize-none`}
+                      value={values.address ?? ""}
+                      onChange={(e) => set("address", e.target.value)}
+                      placeholder="Shop No. 12, ABC Mall, Vijay Nagar, Indore 452001"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Paste the arena address or Google Maps location link — linked in navigation and contact sections.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Opening Hours</label>
+                    <input
+                      className={inputCls}
+                      value={values.hours ?? ""}
+                      onChange={(e) => set("hours", e.target.value)}
+                      placeholder="Tue–Sun · 11:00 AM – 8:00 PM"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className={`${primaryBtn} inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer disabled:opacity-50`}
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Save Venue Details
+                    </button>
+                  </div>
+                </form>
+              </FormCard>
+
+              <FormCard title="Inside Arena Image">
+                <p className="text-xs text-muted-foreground">
+                  The flagship "Inside the AlphaQ arena" photo featured prominently on the landing page and venue cards.
+                </p>
+                {values.arenaImage ? (
+                  <div className="mt-3 relative rounded-xl overflow-hidden border border-border aspect-video max-h-56">
+                    <img
+                      src={values.arenaImage}
+                      alt="Current arena"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-muted-foreground italic">Currently using the default bundled arena photo.</p>
+                )}
+                <div className="mt-4">
+                  <label className={`${ghostBtn} inline-flex cursor-pointer items-center gap-2`}>
+                    {uploadingArena ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {uploadingArena ? "Uploading photo…" : "Upload new arena photo"}
+                    <input type="file" accept="image/*" className="hidden" onChange={onArenaFile} disabled={uploadingArena} />
+                  </label>
+                </div>
+              </FormCard>
+            </div>
+          )}
+
+          {/* SECTION: Theme & Look */}
+          {activeSection === "theme" && (
+            <div className="space-y-6">
+              <FormCard title="Color Theme Palette">
+                <p className="text-xs text-muted-foreground">
+                  Choose the active visual appearance for the AlphaQ portal and public marketing pages.
+                </p>
+                <div className="mt-4">
+                  <ThemeToggle />
+                </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl border border-border bg-background/50 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full bg-[#1ee07a]" />
+                      <strong className="text-foreground">Green (Default)</strong>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-[11px]">
+                      AlphaQ flagship neon green on deep charcoal canvas.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background/50 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full bg-[#a855f7]" />
+                      <strong className="text-foreground">Dark (Obsidian)</strong>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-[11px]">
+                      Stealth obsidian canvas with subtle violet neon accents.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background/50 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full bg-[#0ea5e9]" />
+                      <strong className="text-foreground">Light Mode</strong>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-[11px]">
+                      Clean daytime high contrast with dark slate text and emerald accents.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-background/50 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full bg-[#00e5ff]" />
+                      <strong className="text-foreground">Blue (Cyberpunk)</strong>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-[11px]">
+                      Electric cyan and electric blue on dark navy obsidian.
+                    </p>
+                  </div>
+                </div>
+              </FormCard>
+
+              <FormCard title="Dashboard Background Wallpaper">
+                <p className="text-xs text-muted-foreground">
+                  Custom wallpaper shown behind the authenticated player portal and setup booking panels.
+                </p>
+                {values.appBg ? (
+                  <div className="mt-3 relative rounded-xl overflow-hidden border border-border aspect-video max-h-56">
+                    <img
+                      src={values.appBg}
+                      alt="Current background"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-muted-foreground italic">Using the bundled default background.</p>
+                )}
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <label className={`${ghostBtn} inline-flex cursor-pointer items-center gap-2`}>
+                    {uploadingBg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {uploadingBg ? "Uploading wallpaper…" : "Upload wallpaper image"}
+                    <input type="file" accept="image/*" className="hidden" onChange={onBgFile} disabled={uploadingBg} />
+                  </label>
+                  {values.appBg && (
+                    <button
+                      type="button"
+                      onClick={onResetBg}
+                      disabled={uploadingBg}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-destructive hover:border-destructive/40 transition cursor-pointer"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Reset to default
+                    </button>
+                  )}
+                </div>
+              </FormCard>
+            </div>
+          )}
+
+          {/* SECTION: Setups & Pricing */}
+          {activeSection === "pricing" && (
+            <FormCard title="Setups & Pricing">
+              <p className="text-xs text-muted-foreground mb-4">
+                Available physical hardware inventories and hourly session pricing for PC &amp; PS5 stations.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveSection("Setups & Pricing");
+                }}
+                className="space-y-6"
+              >
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1 mb-3">
+                    Available Hardware Units
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Gaming PCs (total count)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.pcCount ?? ""}
+                        onChange={(e) => set("pcCount", e.target.value)}
+                        placeholder="10"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">Controls total PC slot bookings and availability strip.</p>
+                    </div>
+                    <div>
+                      <label className={labelCls}>PS5 Setups (total count)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.ps5Count ?? ""}
+                        onChange={(e) => set("ps5Count", e.target.value)}
+                        placeholder="3"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">Controls total console stations available.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1 mb-3">
+                    PC Hourly Pricing Tiers
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className={labelCls}>PC — 30-min price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.pcPrice30m ?? ""}
+                        onChange={(e) => set("pcPrice30m", e.target.value)}
+                        placeholder="50"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>PC — 1-hour price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.pcPrice1h ?? ""}
+                        onChange={(e) => set("pcPrice1h", e.target.value)}
+                        placeholder="100"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>PC — Full-day pass (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.pcPriceDay ?? ""}
+                        onChange={(e) => set("pcPriceDay", e.target.value)}
+                        placeholder="500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1 mb-3">
+                    PS5 Hourly Pricing Tiers
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className={labelCls}>PS5 — 30-min price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.ps5Price30m ?? ""}
+                        onChange={(e) => set("ps5Price30m", e.target.value)}
+                        placeholder="60"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>PS5 — 1-hour price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.ps5Price1h ?? ""}
+                        onChange={(e) => set("ps5Price1h", e.target.value)}
+                        placeholder="120"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>PS5 — Full-day pass (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.ps5PriceDay ?? ""}
+                        onChange={(e) => set("ps5PriceDay", e.target.value)}
+                        placeholder="600"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className={`${primaryBtn} inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer disabled:opacity-50`}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Setups &amp; Pricing
+                  </button>
+                </div>
+              </form>
+            </FormCard>
+          )}
+
+          {/* SECTION: Payments & UPI */}
+          {activeSection === "payments" && (
+            <FormCard title="Payments & UPI">
+              <p className="text-xs text-muted-foreground mb-4">
+                Merchant UPI ID and Payee Name used to dynamically generate booking QR codes and payment intents.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveSection("Payments & UPI");
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>UPI ID (VPA)</label>
+                    <input
+                      className={inputCls}
+                      value={values.upiId ?? ""}
+                      onChange={(e) => set("upiId", e.target.value)}
+                      placeholder="alphaq@upi"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">The receiver UPI VPA address.</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>UPI Payee Name</label>
+                    <input
+                      className={inputCls}
+                      value={values.upiName ?? ""}
+                      onChange={(e) => set("upiName", e.target.value)}
+                      placeholder="AlphaQ Gaming"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Business or merchant name shown in banking apps.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground flex items-center gap-1.5">
+                    <CreditCard className="h-4 w-4 text-primary" /> Instant Dynamic QR Generation
+                  </p>
+                  <p className="mt-1 leading-relaxed">
+                    When customers book a setup or food order, an exact amount UPI QR code is created with transaction notes. Once they scan &amp; transfer, they enter their 12-digit UPI reference number for admin verification.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className={`${primaryBtn} inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer disabled:opacity-50`}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Payments &amp; UPI
+                  </button>
+                </div>
+              </form>
+            </FormCard>
+          )}
+
+          {/* SECTION: Stats & Metrics */}
+          {activeSection === "stats" && (
+            <FormCard title="Stats & Highlight Metrics">
+              <p className="text-xs text-muted-foreground mb-4">
+                Headline hardware performance figures featured in the "Why AlphaQ" strip on the homepage.
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void saveSection("Stats & Metrics");
+                }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelCls}>Stat: Pro Setups Count</label>
+                    <input
+                      className={inputCls}
+                      value={values.statSetups ?? ""}
+                      onChange={(e) => set("statSetups", e.target.value)}
+                      placeholder="13"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Stat: Refresh Rate</label>
+                    <input
+                      className={inputCls}
+                      value={values.statRefresh ?? ""}
+                      onChange={(e) => set("statRefresh", e.target.value)}
+                      placeholder="240Hz"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Stat: Local Ping</label>
+                    <input
+                      className={inputCls}
+                      value={values.statPing ?? ""}
+                      onChange={(e) => set("statPing", e.target.value)}
+                      placeholder="<20ms"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Stat: Game Titles Count</label>
+                    <input
+                      className={inputCls}
+                      value={values.statTitles ?? ""}
+                      onChange={(e) => set("statTitles", e.target.value)}
+                      placeholder="7+"
+                    />
+                  </div>
+                </div>
+
+                {/* Preview strip */}
+                <div className="rounded-xl border border-border bg-background/60 p-4 mt-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                    Landing Page Strip Preview
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div className="rounded-lg bg-card border border-border p-2.5">
+                      <p className="font-display text-lg font-bold text-primary">{values.statSetups || "13"}</p>
+                      <p className="text-[10px] text-muted-foreground">Pro Setups</p>
+                    </div>
+                    <div className="rounded-lg bg-card border border-border p-2.5">
+                      <p className="font-display text-lg font-bold text-primary">{values.statRefresh || "240Hz"}</p>
+                      <p className="text-[10px] text-muted-foreground">High Refresh</p>
+                    </div>
+                    <div className="rounded-lg bg-card border border-border p-2.5">
+                      <p className="font-display text-lg font-bold text-primary">{values.statPing || "<20ms"}</p>
+                      <p className="text-[10px] text-muted-foreground">Ultra-Low Ping</p>
+                    </div>
+                    <div className="rounded-lg bg-card border border-border p-2.5">
+                      <p className="font-display text-lg font-bold text-primary">{values.statTitles || "7+"}</p>
+                      <p className="text-[10px] text-muted-foreground">Esports Titles</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className={`${primaryBtn} inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer disabled:opacity-50`}
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Stats &amp; Metrics
+                  </button>
+                </div>
+              </form>
+            </FormCard>
+          )}
+        </main>
       </div>
     </div>
   );
@@ -1673,14 +2303,21 @@ function RewardsTab() {
 /* =================================================================== Users */
 
 function UsersTab() {
+  const { phone: currentPhone } = useAuth();
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"customer" | "admin">("customer");
+  const [role, setRole] = useState<"customer" | "staff" | "admin">("customer");
   const [saving, setSaving] = useState(false);
+
+  // In-app confirmation dialog state for Block and Delete actions
+  const [confirmDialog, setConfirmDialog] = useState<{
+    type: "block" | "delete";
+    user: AdminUser;
+  } | null>(null);
 
   const reload = () => {
     setUsers(null);
@@ -1688,15 +2325,57 @@ function UsersTab() {
   };
   useEffect(reload, []);
 
-  async function toggleRole(u: AdminUser) {
-    const next = u.role === "admin" ? "customer" : "admin";
+  async function changeRole(u: AdminUser, nextRole: "customer" | "staff" | "admin") {
+    if (u.role === nextRole) return;
     setBusy(u.id);
     try {
-      const updated = await setUserRole(u.id, next);
+      const updated = await setUserRole(u.id, nextRole);
       setUsers((prev) => (prev ? prev.map((x) => (x.id === u.id ? updated : x)) : prev));
-      toast.success(next === "admin" ? "Granted admin access." : "Removed admin access.");
+      toast.success(`Role changed to ${nextRole}.`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Update failed.");
+      toast.error(e instanceof Error ? e.message : "Role update failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function handleToggleBlock(u: AdminUser) {
+    if (u.blocked) {
+      // Unblocking immediately executes
+      void performBlock(u, false);
+    } else {
+      // Blocking prompts in-app confirmation modal
+      setConfirmDialog({ type: "block", user: u });
+    }
+  }
+
+  function handleDeleteClick(u: AdminUser) {
+    setConfirmDialog({ type: "delete", user: u });
+  }
+
+  async function performBlock(u: AdminUser, nextState: boolean) {
+    setBusy(u.id);
+    try {
+      const updated = await setUserBlocked(u.id, nextState);
+      setUsers((prev) => (prev ? prev.map((x) => (x.id === u.id ? updated : x)) : prev));
+      toast.success(nextState ? `User "${u.name}" blocked.` : `User "${u.name}" unblocked.`);
+      setConfirmDialog(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Block update failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function performDelete(u: AdminUser) {
+    setBusy(u.id);
+    try {
+      await deleteUser(u.id);
+      setUsers((prev) => (prev ? prev.filter((x) => x.id !== u.id) : prev));
+      toast.success(`User "${u.name}" deleted.`);
+      setConfirmDialog(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed.");
     } finally {
       setBusy(null);
     }
@@ -1707,7 +2386,7 @@ function UsersTab() {
     setSaving(true);
     try {
       await createUser({ phone, name, password, role });
-      toast.success(role === "admin" ? "Admin user created." : "User created.");
+      toast.success(role === "admin" ? "Admin user created." : role === "staff" ? "Staff user created." : "User created.");
       setPhone("");
       setName("");
       setPassword("");
@@ -1730,68 +2409,205 @@ function UsersTab() {
         ) : users.length === 0 ? (
           <Empty>No users yet.</Empty>
         ) : (
-          users.map((u) => (
-            <div
-              key={u.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4"
-            >
-              <div>
-                <p className="font-display text-sm font-semibold">
-                  {u.name}{" "}
-                  <span
-                    className={`ml-1 rounded-full border px-2 py-0.5 text-xs ${u.role === "admin"
-                      ? "border-primary/50 bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground"
-                      }`}
-                  >
-                    {u.role}
-                  </span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  +{u.phone} · {u.rewardPoints} pts
-                </p>
-              </div>
-              <button
-                onClick={() => toggleRole(u)}
-                disabled={busy === u.id}
-                className={u.role === "admin" ? dangerBtn : primaryBtn}
+          users.map((u) => {
+            const isSelf = currentPhone && (u.phone === currentPhone || u.phone.endsWith(currentPhone.slice(-10)));
+            return (
+              <div
+                key={u.id}
+                className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 transition hover:border-primary/30"
               >
-                {busy === u.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : u.role === "admin" ? (
-                  "Remove admin"
-                ) : (
-                  "Make admin"
-                )}
-              </button>
-            </div>
-          ))
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-display text-sm font-semibold text-foreground">
+                      {u.name}
+                    </p>
+                    {isSelf && (
+                      <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        You
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${
+                        u.role === "admin"
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : u.role === "staff"
+                          ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
+                          : "border-border bg-muted/60 text-muted-foreground"
+                      }`}
+                    >
+                      {u.role}
+                    </span>
+                    {u.blocked && (
+                      <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-red-400">
+                        Blocked
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    +{u.phone} · {u.rewardPoints} points
+                    {u.email && <span className="ml-1.5 opacity-80">· {u.email}</span>}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Role selector */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline">Role:</span>
+                    <select
+                      value={u.role}
+                      disabled={busy === u.id || !!isSelf}
+                      onChange={(e) => changeRole(u, e.target.value as "customer" | "staff" | "admin")}
+                      className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground outline-none hover:border-primary/50 focus:border-primary cursor-pointer disabled:opacity-50"
+                      title="Change user role"
+                    >
+                      <option value="customer">Customer</option>
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+
+                  {/* Block / Unblock button */}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleBlock(u)}
+                    disabled={busy === u.id || !!isSelf}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer disabled:opacity-40 ${
+                      u.blocked
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                        : "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                    }`}
+                    title={u.blocked ? "Unblock account" : "Block account"}
+                  >
+                    {busy === u.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Ban className="h-3.5 w-3.5" />
+                    )}
+                    {u.blocked ? "Unblock" : "Block"}
+                  </button>
+
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteClick(u)}
+                    disabled={busy === u.id || !!isSelf}
+                    className={`${dangerBtn} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer disabled:opacity-40`}
+                    title="Delete user"
+                    aria-label={`Delete ${u.name}`}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
+
+      {/* Confirmation Modal for Block / Delete */}
+      <Modal
+        open={Boolean(confirmDialog)}
+        onClose={() => {
+          if (busy === null) setConfirmDialog(null);
+        }}
+        title={confirmDialog?.type === "delete" ? "Delete User" : "Block User"}
+      >
+        {confirmDialog && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-border bg-background/60 p-4">
+              <div
+                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  confirmDialog.type === "delete"
+                    ? "bg-red-500/15 text-red-400"
+                    : "bg-amber-500/15 text-amber-400"
+                }`}
+              >
+                {confirmDialog.type === "delete" ? (
+                  <Trash2 className="h-5 w-5" />
+                ) : (
+                  <Ban className="h-5 w-5" />
+                )}
+              </div>
+              <div className="space-y-1 text-xs">
+                <p className="font-semibold text-foreground text-sm">
+                  {confirmDialog.type === "delete"
+                    ? `Permanently delete "${confirmDialog.user.name}"?`
+                    : `Block "${confirmDialog.user.name}"?`}
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  {confirmDialog.type === "delete"
+                    ? `This will remove ${confirmDialog.user.name} (+${confirmDialog.user.phone}) along with their bookings and records. This action cannot be undone.`
+                    : `${confirmDialog.user.name} (+${confirmDialog.user.phone}) will be immediately barred from logging in or booking setups.`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => setConfirmDialog(null)}
+                className="rounded-lg border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => {
+                  if (confirmDialog.type === "delete") {
+                    void performDelete(confirmDialog.user);
+                  } else {
+                    void performBlock(confirmDialog.user, true);
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition cursor-pointer disabled:opacity-50 ${
+                  confirmDialog.type === "delete"
+                    ? "bg-red-500 text-white hover:bg-red-600 shadow-[0_2px_10px_rgba(239,68,68,0.3)]"
+                    : "bg-amber-500 text-black hover:bg-amber-400 shadow-[0_2px_10px_rgba(245,158,11,0.3)]"
+                }`}
+              >
+                {busy === confirmDialog.user.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : confirmDialog.type === "delete" ? (
+                  <Trash2 className="h-4 w-4" />
+                ) : (
+                  <Ban className="h-4 w-4" />
+                )}
+                <span>
+                  {confirmDialog.type === "delete" ? "Delete permanently" : "Block user"}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Add user">
         <form onSubmit={add} className="space-y-4">
           <div>
             <label className={labelCls}>Phone</label>
-            <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
+            <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" required />
           </div>
           <div>
             <label className={labelCls}>Name</label>
-            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" />
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" required />
           </div>
           <div>
             <label className={labelCls}>Password</label>
-            <input type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min 6 characters" />
+            <input type="password" className={inputCls} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min 6 characters" required />
           </div>
           <div>
             <label className={labelCls}>Role</label>
             <select
               className={inputCls}
               value={role}
-              onChange={(e) => setRole(e.target.value === "admin" ? "admin" : "customer")}
+              onChange={(e) => setRole(e.target.value as "customer" | "staff" | "admin")}
             >
               <option value="customer">Customer</option>
-              <option value="admin">Admin / staff</option>
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
           <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>

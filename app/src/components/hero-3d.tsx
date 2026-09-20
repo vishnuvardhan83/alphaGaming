@@ -70,8 +70,9 @@ export function Hero3D(): JSX.Element {
     emblem.rotation.set(0.5, -0.6, 0.1);
     scene.add(emblem);
 
-    // ---- Lights (green rim + white key for metallic sheen) ----
-    scene.add(new THREE.AmbientLight(0x0c2a1c, 1.2));
+    // ---- Lights (dynamic rim + white key for metallic sheen) ----
+    const ambientLight = new THREE.AmbientLight(0x0c2a1c, 1.2);
+    scene.add(ambientLight);
     const key = new THREE.DirectionalLight(0xffffff, 2.4);
     key.position.set(5, 6, 5);
     scene.add(key);
@@ -83,6 +84,32 @@ export function Hero3D(): JSX.Element {
     const rimB = new THREE.PointLight(0x6bffab, 40, 40);
     rimB.position.set(4, -4, 5);
     scene.add(rimB);
+
+    const THEME_3D: Record<string, { color: number; rimA: number; rimB: number; ambient: number }> = {
+      green: { color: 0x1ee07a, rimA: 0x1ee07a, rimB: 0x6bffab, ambient: 0x0c2a1c },
+      dark: { color: 0xa855f7, rimA: 0xc084fc, rimB: 0xd946ef, ambient: 0x190d2e },
+      light: { color: 0x059669, rimA: 0x10b981, rimB: 0x34d399, ambient: 0x0f172a },
+      blue: { color: 0x00d2ff, rimA: 0x00d2ff, rimB: 0x67e8f9, ambient: 0x081b33 },
+    };
+
+    const apply3DTheme = (themeName: string) => {
+      const cfg = THEME_3D[themeName] || THEME_3D.green;
+      metal.color.setHex(cfg.color);
+      rimA.color.setHex(cfg.rimA);
+      rimB.color.setHex(cfg.rimB);
+      ambientLight.color.setHex(cfg.ambient);
+    };
+
+    const currentDocTheme = document.documentElement.getAttribute("data-theme") || "green";
+    apply3DTheme(currentDocTheme);
+
+    const onThemeChange = (e: Event) => {
+      const ce = e as CustomEvent<{ theme: string }>;
+      if (ce.detail?.theme) {
+        apply3DTheme(ce.detail.theme);
+      }
+    };
+    window.addEventListener("aq-theme-change", onThemeChange);
 
     setReady(true);
 
@@ -126,6 +153,7 @@ export function Hero3D(): JSX.Element {
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('pointermove', onPointer);
+      window.removeEventListener('aq-theme-change', onThemeChange);
       io.disconnect();
       ro.disconnect();
       ringGeo.dispose();

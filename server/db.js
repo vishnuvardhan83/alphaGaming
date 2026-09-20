@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'customer',
   reward_points INTEGER NOT NULL DEFAULT 0,
+  blocked INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS bookings (
@@ -182,7 +183,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   rating INTEGER NOT NULL DEFAULT 5,
   body TEXT NOT NULL,
   verified INTEGER NOT NULL DEFAULT 0,
-  approved INTEGER NOT NULL DEFAULT 0,
+  approved INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS gallery (
@@ -231,6 +232,7 @@ const MYSQL_SCHEMA = [
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'customer',
     reward_points INT NOT NULL DEFAULT 0,
+    blocked TINYINT NOT NULL DEFAULT 0,
     created_at BIGINT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS bookings (
@@ -305,7 +307,7 @@ const MYSQL_SCHEMA = [
     rating INT NOT NULL DEFAULT 5,
     body VARCHAR(1000) NOT NULL,
     verified TINYINT NOT NULL DEFAULT 0,
-    approved TINYINT NOT NULL DEFAULT 0,
+    approved TINYINT NOT NULL DEFAULT 1,
     created_at BIGINT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   `CREATE TABLE IF NOT EXISTS gallery (
@@ -353,8 +355,19 @@ async function ensureSchema() {
     } catch {
       /* column already exists */
     }
+    // Migration: `blocked` column added to users.
+    try {
+      await db.exec("ALTER TABLE users ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0");
+    } catch {
+      /* column already exists */
+    }
   } else {
     for (const stmt of MYSQL_SCHEMA) await db.exec(stmt);
+    try {
+      await db.exec("ALTER TABLE users ADD COLUMN blocked TINYINT NOT NULL DEFAULT 0");
+    } catch {
+      /* column already exists */
+    }
   }
 }
 

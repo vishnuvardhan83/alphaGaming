@@ -104,12 +104,12 @@ function useGames() {
 
 // Food preview grid: prefer admin-managed menu, fall back to static content.
 function useFood() {
-  const [food, setFood] = useState<{ name: string; category: string; price: number }[]>(FOOD);
+  const [food, setFood] = useState<{ name: string; category: string; price: number; image?: string }[]>(FOOD);
   useEffect(() => {
     void listFood(true)
       .then((list) => {
         if (list.length > 0) {
-          setFood(list.map((f) => ({ name: f.name, category: f.category, price: f.price })));
+          setFood(list.map((f) => ({ name: f.name, category: f.category, price: f.price, image: f.image })));
         }
       })
       .catch(() => { });
@@ -217,8 +217,8 @@ function ReviewForm() {
 
   if (!user) {
     return (
-      <div className="rounded-xl border border-white/10 bg-[#0c1114] p-6 text-center">
-        <p className="text-sm text-[#8ba095]">
+      <div className="rounded-xl border border-border bg-card p-6 text-center">
+        <p className="text-sm text-muted-foreground">
           <Link to="/auth" className="font-semibold text-primary hover:underline">
             Sign in
           </Link>{" "}
@@ -247,9 +247,9 @@ function ReviewForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-xl border border-white/10 bg-[#0c1114] p-6"
+      className="rounded-xl border border-border bg-card p-6"
     >
-      <h3 className="font-display text-lg font-semibold text-white">Share your experience</h3>
+      <h3 className="font-display text-lg font-semibold text-foreground">Share your experience</h3>
       <div className="mt-4 flex items-center gap-2">
         {Array.from({ length: 5 }).map((_, i) => {
           const value = i + 1;
@@ -262,7 +262,7 @@ function ReviewForm() {
               className="transition hover:scale-110"
             >
               <Star
-                className={`h-6 w-6 ${value <= rating ? "fill-primary text-primary" : "text-white/20"
+                className={`h-6 w-6 ${value <= rating ? "fill-primary text-primary" : "text-muted-foreground/30"
                   }`}
               />
             </button>
@@ -274,12 +274,12 @@ function ReviewForm() {
         onChange={(e) => setBody(e.target.value)}
         rows={3}
         placeholder="How was your session at AlphaQ?"
-        className="mt-4 w-full resize-none rounded-lg border border-white/10 bg-[#06090b] px-4 py-3 text-sm text-white outline-none transition focus:border-primary/60"
+        className="mt-4 w-full resize-none rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary/60"
       />
       <button
         type="submit"
         disabled={submitting || body.trim().length === 0}
-        className="mt-4 flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab] disabled:opacity-50"
+        className="mt-4 flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-[0_4px_14px_var(--primary-shadow-glow)] transition hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Sending…" : "Submit review"} <ArrowRight className="h-4 w-4" />
       </button>
@@ -344,11 +344,11 @@ export function LandingContent({
           className="absolute inset-0 h-full w-full object-cover opacity-20"
         />
 
-        {/* Ambient gradients */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#06090b] via-[#06090b]/85 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#06090b] to-transparent" />
+        {/* Ambient gradients — adapt smoothly to background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-background to-transparent" />
 
-        {/* 3D stage with rotating metallic green Q emblem on the right */}
+        {/* 3D stage with rotating metallic Q emblem on the right */}
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-0 hidden w-full lg:block lg:w-[58%]">
           <Suspense fallback={null}>
             <Hero3D />
@@ -359,13 +359,13 @@ export function LandingContent({
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6">
           <div className="max-w-2xl py-12 lg:py-20">
             {/* Eyebrow */}
-            <p className="font-display text-xs sm:text-sm font-semibold uppercase tracking-[0.3em] text-[#8ba095] flex items-center gap-2">
+            <p className="font-display text-xs sm:text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
               <span className="text-primary font-bold">&#123;</span> Play beyond limits <span className="text-primary font-bold">&#125;</span>
               <ArrowRight className="h-3.5 w-3.5 text-primary" />
             </p>
 
             {/* Display Heading */}
-            <h1 className="mt-4 font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold uppercase tracking-tight text-white leading-[0.92]">
+            <h1 className="mt-4 font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold uppercase tracking-tight text-foreground leading-[0.92]">
               Indore's
               <br />
               next-level
@@ -374,18 +374,18 @@ export function LandingContent({
             </h1>
 
             {/* Subtitle */}
-            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-[#8ba095]">
+            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground">
               High-end PC &amp; PS5 setups, low-ping internet and a clean, family-friendly arena for every gamer. Book ahead, order food to your seat, and compete.
             </p>
 
             {/* Buttons */}
             <div className="mt-8 flex flex-wrap gap-4">
-              <BookLink className="flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-[#04140b] shadow-[0_10px_28px_rgba(30,224,122,0.45)] transition hover:bg-[#6bffab] hover:scale-105 active:scale-95">
+              <BookLink className="flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-[0_10px_28px_var(--primary-shadow-glow)] transition hover:opacity-90 hover:scale-105 active:scale-95">
                 Book a setup now <ArrowRight className="h-4 w-4" />
               </BookLink>
               <a
                 href="#battlestation"
-                className="rounded-full border border-white/20 bg-white/[0.02] px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-white transition hover:border-primary/60 hover:text-primary hover:scale-105 active:scale-95"
+                className="rounded-full border border-border bg-card/60 px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-foreground transition hover:border-primary/60 hover:text-primary hover:scale-105 active:scale-95"
               >
                 Explore battlestation
               </a>
@@ -401,18 +401,18 @@ export function LandingContent({
                 <span className="aq-pulse-dot" />
                 {avail.ps5}/{avail.totalPs5} PS5S OPEN
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[#8ba095]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 OPEN UNTIL 8 PM
               </span>
             </div>
           </div>
 
           {/* Hero Bottom Footer row */}
-          <div className="flex items-center justify-between border-white/[0.08] pt-6 pb-4 text-xs text-[#8ba095]">
-            <a href="#battlestation" className="inline-flex items-center gap-1.5 hover:text-white transition">
+          <div className="flex items-center justify-between border-t border-border pt-6 pb-4 text-xs text-muted-foreground">
+            <a href="#battlestation" className="inline-flex items-center gap-1.5 hover:text-foreground transition">
               Scroll for more <ArrowDown className="h-3.5 w-3.5" />
             </a>
-            <span className="font-display font-semibold uppercase tracking-widest text-[#8ba095]">
+            <span className="font-display font-semibold uppercase tracking-widest text-muted-foreground">
               EST. {BRAND.est}
             </span>
           </div>
@@ -420,21 +420,21 @@ export function LandingContent({
       </section>
 
       {/* 2 · BATTLESTATION */}
-      <section id="battlestation" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="battlestation" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095] flex items-center gap-2">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground flex items-center gap-2">
                 <span className="h-0.5 w-6 bg-primary" /> The battlestation
               </p>
-              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
                 Every part, dialled in
               </h2>
-              <p className="mt-3 max-w-xl text-sm sm:text-base text-[#8ba095]">
+              <p className="mt-3 max-w-xl text-sm sm:text-base text-muted-foreground">
                 Scroll the hero to assemble a full rig in 3D — or explore each component right here. Every card is a keyboard-accessible equivalent of the interactive hotspots.
               </p>
             </div>
-            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-4 py-1.5 text-xs font-medium text-[#8ba095]">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-medium text-muted-foreground">
               <Mouse className="h-3.5 w-3.5 text-primary" /> Hover, tap or Tab to explore
             </span>
           </div>
@@ -445,34 +445,34 @@ export function LandingContent({
               return (
                 <div
                   key={spot.title}
-                  className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
+                  className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
                 >
                   <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="font-display text-lg font-bold text-white">{spot.title}</h3>
-                  <p className="mt-2 text-xs sm:text-sm text-[#8ba095] leading-relaxed">{spot.body}</p>
+                  <h3 className="font-display text-lg font-bold text-foreground">{spot.title}</h3>
+                  <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">{spot.body}</p>
                 </div>
               );
             })}
           </div>
-          <p className="mt-4 text-xs text-[#8ba095]">
+          <p className="mt-4 text-xs text-muted-foreground">
             * Exact hardware models &amp; specs are verified before publishing.
           </p>
         </div>
       </section>
 
       {/* 3 · PRICING */}
-      <section id="pricing" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="pricing" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center mb-12">
-            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Simple, honest pricing
             </p>
-            <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+            <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
               Pick your platform
             </h2>
-            <p className="mt-3 mx-auto max-w-lg text-sm sm:text-base text-[#8ba095]">
+            <p className="mt-3 mx-auto max-w-lg text-sm sm:text-base text-muted-foreground">
               Pay by the half-hour, the hour, or grab a heavily-discounted full-day pass. You choose the platform and quantity — we assign the exact setup on arrival.
             </p>
           </div>
@@ -481,7 +481,7 @@ export function LandingContent({
             {adminSettings.pricing.map((p) => (
               <div
                 key={p.key}
-                className={`rounded-2xl border bg-[#0c1114]/90 p-8 backdrop-blur-md transition hover:-translate-y-1 ${p.featured ? "border-primary/50 card-glow" : "border-white/[0.08]"
+                className={`rounded-2xl border bg-card/90 p-8 backdrop-blur-md transition hover:-translate-y-1 ${p.featured ? "border-primary/50 card-glow" : "border-border"
                   }`}
               >
                 <div className="flex items-start justify-between">
@@ -490,11 +490,11 @@ export function LandingContent({
                       {p.key === "pc" ? <Monitor className="h-6 w-6" /> : <Tv className="h-6 w-6" />}
                     </div>
                     <div>
-                      <h3 className="font-display text-2xl font-bold text-white">{p.name}</h3>
-                      <p className="text-xs text-[#8ba095]">{p.tagline}</p>
+                      <h3 className="font-display text-2xl font-bold text-foreground">{p.name}</h3>
+                      <p className="text-xs text-muted-foreground">{p.tagline}</p>
                     </div>
                   </div>
-                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-[#8ba095]">
+                  <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
                     {p.capacity}
                   </span>
                 </div>
@@ -503,9 +503,9 @@ export function LandingContent({
                   {p.tiers.map((t, i) => (
                     <div
                       key={t.label}
-                      className="flex items-center justify-between border-b border-white/[0.06] pb-3 last:border-0"
+                      className="flex items-center justify-between border-b border-border/60 pb-3 last:border-0"
                     >
-                      <span className="text-sm text-[#8ba095]">
+                      <span className="text-sm text-muted-foreground">
                         {t.label}
                         {i === p.tiers.length - 1 && (
                           <span className="ml-2 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
@@ -513,42 +513,42 @@ export function LandingContent({
                           </span>
                         )}
                       </span>
-                      <span className="font-display text-xl font-bold text-white">
+                      <span className="font-display text-xl font-bold text-foreground">
                         {formatINR(t.price)}
-                        <span className="ml-1 text-xs font-normal text-[#8ba095]">/ {t.unit}</span>
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">/ {t.unit}</span>
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <p className="mt-5 text-xs text-[#8ba095] flex items-center gap-1.5">
+                <p className="mt-5 text-xs text-muted-foreground flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" /> {p.note}
                 </p>
 
-                <BookLink className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]">
+                <BookLink className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90">
                   Book {p.name} <ArrowRight className="h-4 w-4" />
                 </BookLink>
               </div>
             ))}
           </div>
-          <p className="mt-6 text-center text-xs text-[#8ba095]">
+          <p className="mt-6 text-center text-xs text-muted-foreground">
             Advance bookings require full online payment and are confirmed after a quick manual approval — payment alone is never a final confirmation.
           </p>
         </div>
       </section>
 
       {/* 4 · WHY ALPHAQ */}
-      <section id="why" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="why" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-12 lg:grid-cols-12 items-center">
             <div className="lg:col-span-5">
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Why AlphaQ
               </p>
-              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
                 Built for gamers who care
               </h2>
-              <p className="mt-4 text-sm sm:text-base leading-relaxed text-[#8ba095]">
+              <p className="mt-4 text-sm sm:text-base leading-relaxed text-muted-foreground">
                 Performance hardware, fast internet and a genuinely clean, welcoming space — the details that turn a session into a habit.
               </p>
 
@@ -556,7 +556,7 @@ export function LandingContent({
                 {adminSettings.stats.map((s) => (
                   <div key={s.label} className="border-l-2 border-primary pl-4">
                     <div className="font-display text-3xl font-extrabold text-primary">{s.value}</div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-[#8ba095]">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       {s.label}
                     </div>
                   </div>
@@ -571,13 +571,13 @@ export function LandingContent({
                 return (
                   <div
                     key={f.title}
-                    className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 backdrop-blur-md"
+                    className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-md"
                   >
                     <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-display text-lg font-bold text-white">{f.title}</h3>
-                    <p className="mt-2 text-xs sm:text-sm text-[#8ba095] leading-relaxed">{f.body}</p>
+                    <h3 className="font-display text-lg font-bold text-foreground">{f.title}</h3>
+                    <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">{f.body}</p>
                   </div>
                 );
               })}
@@ -587,14 +587,14 @@ export function LandingContent({
       </section>
 
       {/* 5 · GAMES */}
-      <section id="games" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="games" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Ready to play
               </p>
-              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
                 The library
               </h2>
             </div>
@@ -604,8 +604,8 @@ export function LandingContent({
                   key={filter}
                   onClick={() => setSelectedFilter(filter)}
                   className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${selectedFilter === filter
-                    ? "bg-primary text-[#04140b]"
-                    : "border border-white/10 text-[#8ba095] hover:text-white hover:border-white/20"
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:text-foreground hover:border-primary/40"
                     }`}
                 >
                   {filter}
@@ -618,10 +618,10 @@ export function LandingContent({
             {filteredGames.map((g) => (
               <div
                 key={g.title}
-                className="flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-5 backdrop-blur-md transition hover:border-primary/40 min-h-[140px]"
+                className="flex flex-col justify-between rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-md transition hover:border-primary/40 min-h-[140px]"
               >
                 <div className="flex items-start justify-between">
-                  <h3 className="font-display text-lg font-bold text-white">{g.title}</h3>
+                  <h3 className="font-display text-lg font-bold text-foreground">{g.title}</h3>
                   <div className="flex gap-1">
                     {g.platform.map((p) => (
                       <span
@@ -637,7 +637,7 @@ export function LandingContent({
                   {g.tags.map((t) => (
                     <span
                       key={t}
-                      className="rounded-md border border-white/10 bg-white/[0.02] px-2 py-0.5 text-[10px] text-[#8ba095]"
+                      className="rounded-md border border-border bg-card/40 px-2 py-0.5 text-[10px] text-muted-foreground"
                     >
                       {t}
                     </span>
@@ -646,7 +646,7 @@ export function LandingContent({
               </div>
             ))}
           </div>
-          <p className="mt-4 text-xs text-[#8ba095]">
+          <p className="mt-4 text-xs text-muted-foreground">
             More titles are added regularly — full library published once staff verifies availability.
           </p>
         </div>
@@ -655,34 +655,34 @@ export function LandingContent({
       {/* 6 · PS5 LOUNGE BAND */}
       <section id="ps5" className="scroll-mt-20 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="rounded-3xl border border-white/[0.08] bg-gradient-to-r from-[#0c1114] to-[#141f19] p-8 sm:p-12 overflow-hidden relative">
+          <div className="rounded-3xl border border-border bg-gradient-to-r from-card to-muted p-8 sm:p-12 overflow-hidden relative">
             <div className="max-w-xl">
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 PS5 couch lounge
               </p>
-              <h2 className="mt-2 font-display text-3xl sm:text-4xl lg:text-5xl font-bold uppercase tracking-tight text-white">
+              <h2 className="mt-2 font-display text-3xl sm:text-4xl lg:text-5xl font-bold uppercase tracking-tight text-foreground">
                 Big TV. Comfy couch. Four controllers of chaos.
               </h2>
-              <p className="mt-4 text-sm sm:text-base text-[#8ba095] leading-relaxed">
+              <p className="mt-4 text-sm sm:text-base text-muted-foreground leading-relaxed">
                 Grab the squad and settle into the PS5 lounge — one flat price per console, whether it's just you or all four of you.
               </p>
               <div className="mt-6 flex flex-wrap gap-8">
                 <div>
-                  <div className="font-display text-3xl font-extrabold text-primary">₹120<span className="text-sm font-normal text-[#8ba095]">/hr</span></div>
-                  <div className="text-xs text-[#8ba095]">per console</div>
+                  <div className="font-display text-3xl font-extrabold text-primary">₹120<span className="text-sm font-normal text-muted-foreground">/hr</span></div>
+                  <div className="text-xs text-muted-foreground">per console</div>
                 </div>
                 <div>
                   <div className="font-display text-3xl font-extrabold text-primary">1–4</div>
-                  <div className="text-xs text-[#8ba095]">players, same price</div>
+                  <div className="text-xs text-muted-foreground">players, same price</div>
                 </div>
                 <div>
                   <div className="font-display text-3xl font-extrabold text-primary">₹600</div>
-                  <div className="text-xs text-[#8ba095]">full-day pass</div>
+                  <div className="text-xs text-muted-foreground">full-day pass</div>
                 </div>
               </div>
               <a
                 href="#pricing"
-                className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3 text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3 text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
               >
                 Book the PS5 lounge <ArrowRight className="h-4 w-4" />
               </a>
@@ -694,18 +694,18 @@ export function LandingContent({
         </div>
       </section>
 
-      {/* 7 · FOOD & DRINKS (Screenshot 2) */}
-      <section id="food" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      {/* 7 · FOOD & DRINKS */}
+      <section id="food" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 Fuel the grind
               </p>
-              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+              <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
                 Food &amp; Drinks, to your seat
               </h2>
-              <p className="mt-3 max-w-xl text-sm sm:text-base text-[#8ba095]">
+              <p className="mt-3 max-w-xl text-sm sm:text-base text-muted-foreground">
                 Order from your PC desk or PS5 couch — it's delivered straight to your setup. Logged-in gamers only; pay online, by reward points or at the counter.
               </p>
             </div>
@@ -714,14 +714,14 @@ export function LandingContent({
                 <button
                   type="button"
                   onClick={onFood}
-                  className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white cursor-pointer"
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50 cursor-pointer"
                 >
                   Order from your setup <ArrowRight className="h-4 w-4" />
                 </button>
               ) : (
                 <a
                   href="/dashboard#food"
-                  className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50"
                 >
                   Order from your setup <ArrowRight className="h-4 w-4" />
                 </a>
@@ -729,26 +729,33 @@ export function LandingContent({
             ) : (
               <a
                 href="/auth?redirect=/dashboard#food"
-                className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
+                className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-card/60 px-5 py-2 text-sm font-semibold text-foreground transition hover:border-primary/50"
               >
                 Order from your setup <ArrowRight className="h-4 w-4" />
               </a>
             )}
           </div>
 
-          {/* 6 food cards matching Screenshot 2 */}
+          {/* 6 food cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {food.slice(0, 6).map((item) => (
               <div
                 key={item.name}
-                className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-5 text-center backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
+                className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card/80 p-5 text-center backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
               >
-                {/* Green cup line icon */}
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Coffee className="h-5 w-5" />
-                </div>
-                <div className="text-sm font-semibold text-white">{item.name}</div>
-                <div className="my-1 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8ba095]">
+                {item.image ? (
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="mb-3 h-10 w-10 rounded-xl object-cover border border-primary/20 bg-muted"
+                  />
+                ) : (
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                    <Coffee className="h-5 w-5" />
+                  </div>
+                )}
+                <div className="text-sm font-semibold text-foreground">{item.name}</div>
+                <div className="my-1 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   {item.category}
                 </div>
                 <div className="mt-1 font-display text-base font-bold text-primary">
@@ -763,28 +770,28 @@ export function LandingContent({
       {/* 8 · BIRTHDAYS & GROUPS */}
       <section id="birthdays" className="scroll-mt-20 py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="rounded-3xl border border-primary/30 bg-gradient-to-b from-[#0c1114] to-[#06090b] p-8 sm:p-14 text-center card-glow">
-            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+          <div className="rounded-3xl border border-primary/30 bg-gradient-to-b from-card to-background p-8 sm:p-14 text-center card-glow">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               Birthdays &amp; groups
             </p>
-            <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+            <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
               Throw the party they'll screenshot
             </h2>
-            <p className="mt-4 mx-auto max-w-xl text-sm sm:text-base text-[#8ba095] leading-relaxed">
+            <p className="mt-4 mx-auto max-w-xl text-sm sm:text-base text-muted-foreground leading-relaxed">
               Reserve a cluster of PCs or the PS5 lounge, add food and a mini-tournament, and we'll tailor a quote. A small deposit locks it in.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <button
                 type="button"
                 onClick={() => { setQuotePrefillTournament(false); setQuoteOpen(true); }}
-                className="rounded-full bg-primary px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
+                className="rounded-full bg-primary px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
               >
                 Request a group quote
               </button>
               <button
                 type="button"
                 onClick={() => { setQuotePrefillTournament(true); setQuoteOpen(true); }}
-                className="rounded-full border border-white/20 bg-white/[0.02] px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-white transition hover:border-primary/50"
+                className="rounded-full border border-border bg-card/60 px-8 py-3.5 font-display text-xs font-bold uppercase tracking-wider text-foreground transition hover:border-primary/50"
               >
                 Add a mini-tournament
               </button>
@@ -797,7 +804,7 @@ export function LandingContent({
       <TournamentsSection onGroupQuote={() => { setQuotePrefillTournament(false); setQuoteOpen(true); }} />
 
       {/* 10 · THE ARENA (Gallery + Reviews) */}
-      <section id="reviews" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="reviews" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
 
           {/* Main Reviews + Gallery */}
@@ -805,15 +812,15 @@ export function LandingContent({
 
             {/* Gallery Column */}
             <div className="lg:col-span-5">
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                 The arena
               </p>
 
-              <h2 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-white sm:text-5xl">
+              <h2 className="mt-2 font-display text-4xl font-bold uppercase tracking-tight text-foreground sm:text-5xl">
                 Real space, real reviews
               </h2>
 
-              <p className="mt-3 text-sm text-[#8ba095] sm:text-base">
+              <p className="mt-3 text-sm text-muted-foreground sm:text-base">
                 A peek inside AlphaQ, plus verified words from gamers who've booked and played.
               </p>
 
@@ -823,7 +830,7 @@ export function LandingContent({
                   gallery.slice(0, 4).map((g) => (
                     <div
                       key={g.id}
-                      className="aspect-[4/3] overflow-hidden rounded-xl border border-white/10 card-glow"
+                      className="aspect-[4/3] overflow-hidden rounded-xl border border-border card-glow"
                     >
                       <img
                         src={g.url}
@@ -837,9 +844,9 @@ export function LandingContent({
                   [1, 2, 3, 4].map((n) => (
                     <div
                       key={n}
-                      className="flex aspect-[4/3] items-center justify-center rounded-xl border border-white/10 bg-[#0c1114] p-4 text-center"
+                      className="flex aspect-[4/3] items-center justify-center rounded-xl border border-border bg-card p-4 text-center"
                     >
-                      <span className="text-xs uppercase tracking-wider text-[#8ba095]">
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground">
                         Arena photo
                       </span>
                     </div>
@@ -852,16 +859,16 @@ export function LandingContent({
             <div className="lg:col-span-7">
 
               {/* Fixed review viewport */}
-              <div className="h-[620px] overflow-y-auto pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10 hover:scrollbar-thumb-primary/30">
+              <div className="h-[620px] overflow-y-auto pr-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-border hover:scrollbar-thumb-primary/30">
                 {reviews === null ? (
                   <div className="flex h-full items-center justify-center">
-                    <span className="text-sm text-[#8ba095]">
+                    <span className="text-sm text-muted-foreground">
                       Loading reviews…
                     </span>
                   </div>
                 ) : reviews.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 text-center">
-                    <p className="text-sm text-[#8ba095]">
+                  <div className="flex h-full items-center justify-center rounded-2xl border border-border bg-card/80 p-6 text-center">
+                    <p className="text-sm text-muted-foreground">
                       No reviews yet — be the first to share your experience!
                     </p>
                   </div>
@@ -873,16 +880,16 @@ export function LandingContent({
                       return (
                         <div
                           key={r.id || `${r.handle}-${i}`}
-                          className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-5 backdrop-blur-md"
+                          className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-md"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#6bffab] to-[#0fb866] font-display text-xs font-bold text-[#04140b]">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary font-display text-xs font-bold text-primary-foreground">
                                 {initial}
                               </span>
 
                               <div>
-                                <div className="text-sm font-semibold text-white">
+                                <div className="text-sm font-semibold text-foreground">
                                   {r.name}
                                 </div>
 
@@ -895,7 +902,7 @@ export function LandingContent({
                             <StarRating rating={r.rating} />
                           </div>
 
-                          <p className="mt-3 text-sm leading-relaxed text-[#8ba095]">
+                          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                             "{r.body}"
                           </p>
                         </div>
@@ -917,16 +924,16 @@ export function LandingContent({
       </section>
 
       {/* 11 · VISIT US (Screenshot 4) */}
-      <section id="visit" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <section id="visit" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-10 lg:grid-cols-12 items-stretch">
             {/* Left info column */}
             <div className="lg:col-span-5 flex flex-col justify-between">
               <div>
-                <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                   Visit us
                 </p>
-                <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+                <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
                   Come play
                 </h2>
 
@@ -934,28 +941,28 @@ export function LandingContent({
                   <li className="flex items-start gap-4">
                     <MapPin className="mt-1 h-5 w-5 shrink-0 text-primary" />
                     <div>
-                      <div className="font-medium text-white">{BRAND.full}</div>
+                      <div className="font-medium text-foreground">{BRAND.full}</div>
                       {adminSettings.address ? (
-                        <div className="text-xs text-[#8ba095] mt-0.5">{adminSettings.address}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{adminSettings.address}</div>
                       ) : (
-                        <div className="text-xs text-[#8ba095]">{adminSettings.city}, India</div>
+                        <div className="text-xs text-muted-foreground">{adminSettings.city}, India</div>
                       )}
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
                     <Clock className="mt-1 h-5 w-5 shrink-0 text-primary" />
                     <div>
-                      <div className="font-medium text-white">{adminSettings.hours}</div>
-                      <div className="text-xs text-[#8ba095]">Closed Mondays</div>
+                      <div className="font-medium text-foreground">{adminSettings.hours}</div>
+                      <div className="text-xs text-muted-foreground">Closed Mondays</div>
                     </div>
                   </li>
                   <li className="flex items-start gap-4">
                     <Phone className="mt-1 h-5 w-5 shrink-0 text-primary" />
                     <div>
-                      <a href={`tel:${adminSettings.phone}`} className="font-medium text-white hover:text-primary transition">
+                      <a href={`tel:${adminSettings.phone}`} className="font-medium text-foreground hover:text-primary transition">
                         {adminSettings.phone}
                       </a>
-                      <div className="text-xs text-[#8ba095]">Call for urgent changes</div>
+                      <div className="text-xs text-muted-foreground">Call for urgent changes</div>
                     </div>
                   </li>
                 </ul>
@@ -972,7 +979,7 @@ export function LandingContent({
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-primary px-6 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab] flex items-center gap-1.5"
+                  className="rounded-full bg-primary px-6 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:opacity-90 flex items-center gap-1.5"
                 >
                   <MapPin className="h-3.5 w-3.5" /> Get directions
                 </a>
@@ -981,7 +988,7 @@ export function LandingContent({
 
             {/* Right dark grid map card with arena image background */}
             <div className="lg:col-span-7">
-              <div className="relative min-h-[340px] h-full rounded-2xl border border-white/[0.08] bg-[#080c0a] overflow-hidden flex items-center justify-center">
+              <div className="relative min-h-[340px] h-full rounded-2xl border border-border bg-card overflow-hidden flex items-center justify-center">
                 {/* Arena image as background */}
                 <img
                   src={(arenaImage || heroImg) ?? undefined}
@@ -990,7 +997,7 @@ export function LandingContent({
                 />
 
                 {/* Grid overlay with dark tint */}
-                <div className="absolute inset-0 bg-[#080c0a]/70 bg-hairline-grid" />
+                <div className="absolute inset-0 bg-background/70 bg-hairline-grid" />
 
                 {/* Normal map pin */}
                 <div className="relative z-10 flex flex-col items-center justify-center">
@@ -999,7 +1006,7 @@ export function LandingContent({
 
                 {/* Bottom badge matching Screenshot 4 */}
                 <div className="absolute left-4 bottom-4 z-10">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0c1114]/90 px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider text-[#8ba095] backdrop-blur-md">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider text-muted-foreground backdrop-blur-md">
                     <MapIcon className="h-3 w-3" /> Google Maps embed — location marker added at launch
                   </span>
                 </div>
