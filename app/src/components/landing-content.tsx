@@ -335,7 +335,7 @@ export function LandingContent({
     <>
       {/* 1 · HERO SECTION (Screenshot 1) */}
       <section id="top" className="relative flex min-h-[92vh] items-center overflow-hidden pt-20">
-        {/* Background arena image from before */}
+        {/* Background arena image */}
         <img
           src={(heroImg || arenaImage) ?? undefined}
           alt="AlphaQ Gaming arena"
@@ -979,16 +979,26 @@ export function LandingContent({
               </div>
             </div>
 
-            {/* Right dark grid map mockup matching Screenshot 4 */}
+            {/* Right dark grid map card with arena image background */}
             <div className="lg:col-span-7">
-              <div className="relative min-h-[340px] h-full rounded-2xl border border-white/[0.08] bg-[#080c0a] overflow-hidden flex items-center justify-center bg-hairline-grid">
-                {/* Glowing green location pin */}
-                <div className="flex flex-col items-center justify-center">
-                  <MapPin className="h-12 w-12 text-primary aq-bob-pin drop-shadow-[0_8px_24px_rgba(30,224,122,0.7)]" />
+              <div className="relative min-h-[340px] h-full rounded-2xl border border-white/[0.08] bg-[#080c0a] overflow-hidden flex items-center justify-center">
+                {/* Arena image as background */}
+                <img
+                  src={(arenaImage || heroImg) ?? undefined}
+                  alt="AlphaQ Gaming arena"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+
+                {/* Grid overlay with dark tint */}
+                <div className="absolute inset-0 bg-[#080c0a]/70 bg-hairline-grid" />
+
+                {/* Normal map pin */}
+                <div className="relative z-10 flex flex-col items-center justify-center">
+                  <MapPin className="h-10 w-10 text-primary" />
                 </div>
 
                 {/* Bottom badge matching Screenshot 4 */}
-                <div className="absolute left-4 bottom-4">
+                <div className="absolute left-4 bottom-4 z-10">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0c1114]/90 px-3 py-1 font-display text-[10px] font-semibold uppercase tracking-wider text-[#8ba095] backdrop-blur-md">
                     <MapIcon className="h-3 w-3" /> Google Maps embed — location marker added at launch
                   </span>
