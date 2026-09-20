@@ -34,7 +34,16 @@ import {
   type Booking,
   type BookingStatus,
 } from "@/lib/bookings";
-import { getMyRewards, getSettings, type RewardsInfo, type Settings } from "@/lib/db";
+import {
+  getMyRewards,
+  getSettings,
+  listMyRegistrations,
+  listTournaments,
+  type RewardsInfo,
+  type Settings,
+  type TournamentRegistration,
+  type Tournament,
+} from "@/lib/db";
 import { formatINR } from "@/lib/content";
 import QRCode from "qrcode";
 
@@ -376,6 +385,8 @@ function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [tab, setTab] = useState("home");
   const [showBook, setShowBook] = useState(false);
+  const [myRegs, setMyRegs] = useState<TournamentRegistration[]>([]);
+  const [tournamentsMap, setTournamentsMap] = useState<Record<string, Tournament>>({});
 
   async function reload() {
     try {
@@ -385,6 +396,22 @@ function DashboardPage() {
       setBookings([]);
     }
   }
+
+  // Load tournament registrations and tournament details for the current user
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    void Promise.all([listMyRegistrations(user.uid), listTournaments()])
+      .then(([regs, tournaments]) => {
+        if (!alive) return;
+        setMyRegs(regs);
+        const map: Record<string, Tournament> = {};
+        for (const t of tournaments) map[t.id] = t;
+        setTournamentsMap(map);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;

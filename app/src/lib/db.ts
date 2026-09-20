@@ -49,6 +49,15 @@ export interface TournamentRegistration {
   createdAt: number;
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  rank: number;
+  team: string;
+  points: number;
+  game?: string;
+  tag?: string;
+}
+
 export type FoodOrderStatus = "placed" | "preparing" | "delivered" | "cancelled";
 export interface FoodOrderLine {
   foodId: string;
@@ -89,11 +98,12 @@ export interface GalleryImage {
 
 export interface Settings {
   brandName: string;
-  whatsapp: string;
+  whatsapp?: string; // kept for backward compat but no longer displayed in UI
   phone: string;
   email: string;
   instagram: string;
   city: string;
+  address: string; // Full address or Google Maps link/coordinates for the venue
   hours: string;
   upiId: string;
   upiName: string;
@@ -101,6 +111,19 @@ export interface Settings {
   appBg: string; // URL of the dashboard/app background image ("" = use bundled default)
   pcCount: string; // total gaming PCs (string; parse with Number)
   ps5Count: string; // total PS5 setups
+  // Pricing tiers for Gaming PC (INR amounts as strings)
+  pcPrice30m: string; // 30-minute price
+  pcPrice1h: string;  // Per hour price
+  pcPriceDay: string; // Full-day pass price
+  // Pricing tiers for PS5
+  ps5Price30m: string;
+  ps5Price1h: string;
+  ps5PriceDay: string;
+  // Stats shown in the "Why AlphaQ" section
+  statSetups: string;   // e.g. "13"
+  statRefresh: string;  // e.g. "240Hz"
+  statPing: string;     // e.g. "<20ms"
+  statTitles: string;   // e.g. "7+"
 }
 
 export interface AdminUser {
@@ -152,6 +175,54 @@ export const registerForTournament = (input: {
 
 export const listMyRegistrations = (_userId?: string) =>
   apiGet<TournamentRegistration[]>("/registrations/mine");
+
+/* ---------------------------------------------------------- leaderboard -- */
+
+const SEED_LEADERBOARD: LeaderboardEntry[] = [
+  { id: "lb-1", rank: 1, team: "Team Nova", points: 2480, game: "Valorant" },
+  { id: "lb-2", rank: 2, team: "Frag Society", points: 2190, game: "Valorant" },
+  { id: "lb-3", rank: 3, team: "Indore Aces", points: 1905, game: "Valorant" },
+  { id: "lb-4", rank: 4, team: "Outplay Esports", points: 1720, game: "Counter-Strike 2" },
+  { id: "lb-5", rank: 5, team: "Velocity IX", points: 1540, game: "Counter-Strike 2" },
+];
+
+const LEADERBOARD_STORAGE_KEY = "aq_season_leaderboard";
+
+export async function listLeaderboard(game?: string): Promise<LeaderboardEntry[]> {
+  try {
+    const remote = await apiGet<LeaderboardEntry[]>(`/leaderboard${game ? `?game=${encodeURIComponent(game)}` : ""}`);
+    if (Array.isArray(remote) && remote.length > 0) return remote;
+  } catch {
+    /* fallback to stored / seed */
+  }
+
+  if (typeof localStorage !== "undefined") {
+    try {
+      const stored = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored) as LeaderboardEntry[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return game ? parsed.filter((p) => !p.game || p.game === game) : parsed;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return game ? SEED_LEADERBOARD.filter((p) => !p.game || p.game === game) : SEED_LEADERBOARD;
+}
+
+export async function saveLeaderboard(entries: LeaderboardEntry[]): Promise<void> {
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(entries));
+  }
+  try {
+    await apiPost("/admin/leaderboard", { entries });
+  } catch {
+    /* non-blocking */
+  }
+}
 
 /* ------------------------------------------------------------ food orders -- */
 

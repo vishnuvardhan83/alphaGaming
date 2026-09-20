@@ -9,7 +9,6 @@ export const BRAND = {
   hours: "Tue–Sun · 11:00 AM – 8:00 PM",
   closed: "Closed Mondays",
   phone: "+91 00000 00000",
-  whatsapp: "+91 00000 00000",
   email: "hello@alphaq.gg",
   instagram: "alphaq.gaming",
 };
@@ -88,18 +87,15 @@ export const FOOD: FoodItem[] = [
   { name: "Alpha combo", category: "Combos", price: 220 },
 ];
 
-export interface Tournament {
+// Tournaments are now admin-managed via the admin panel — no hardcoded fallback.
+// Interface kept for reference; actual data comes from db.ts listTournaments().
+export interface StaticTournament {
   game: string;
   format: string;
   date: string;
   prize: string;
   status: "open" | "soon" | "full";
 }
-
-export const TOURNAMENTS: Tournament[] = [
-  { game: "Valorant", format: "5v5 · Best of 3", date: "Sat, 27 Sep", prize: "₹10,000 pool", status: "open" },
-  { game: "Counter-Strike 2", format: "5v5 · Single elim", date: "Sun, 12 Oct", prize: "₹8,000 pool", status: "soon" },
-];
 
 export interface FeaturePoint {
   title: string;
@@ -113,24 +109,26 @@ export const FEATURES: FeaturePoint[] = [
   { title: "Clean & family-friendly", body: "A welcoming arena for students, friends, families and birthday groups." },
 ];
 
+// Reviews are now admin-managed via the Reviews tab in the admin panel.
+// The interface is kept for type usage in db.ts.
 export interface Review {
   name: string;
   handle: string;
   rating: number;
   body: string;
 }
+// No hardcoded REVIEWS array — admin adds real reviews via the admin panel.
 
-export const REVIEWS: Review[] = [
-  { name: "Aarav S.", handle: "@aaravfrags", rating: 5, body: "Best PCs in Indore. Ping is insanely low and the rigs feel brand new every time." },
-  { name: "Mehak J.", handle: "@mehakplays", rating: 5, body: "Booked the PS5 lounge for my brother's birthday — staff set everything up. Super clean place." },
-  { name: "Rohan V.", handle: "@rv_valo", rating: 4, body: "Grind here every weekend. Cold coffee + 240Hz monitor is a dangerous combo." },
-];
+// Stats are now admin-managed via Settings in the admin panel.
+// Fallback values are used if admin hasn't set them yet (see useAdminSettings in landing-content.tsx).
 
-export const STATS = [
-  { value: "13", label: "Pro setups" },
-  { value: "240Hz", label: "Refresh rate" },
-  { value: "<10ms", label: "Local ping" },
-  { value: "7+", label: "Titles installed" },
+export const HOTSPOTS = [
+  { key: "display", title: "Display", body: "High-refresh monitor tuned for fast-paced competitive titles." },
+  { key: "cabinet", title: "PC cabinet", body: "Performance GPU/CPU pairing — exact specs verified before publishing." },
+  { key: "headset", title: "Headset", body: "Positional audio so you hear footsteps before you see them." },
+  { key: "keyboard", title: "Keyboard", body: "Mechanical switches with fast, consistent actuation." },
+  { key: "mouse", title: "Mouse", body: "Precision esports sensor with a light, responsive body." },
+  { key: "network", title: "Network", body: "Low-ping wired connection for stable online ranked play." },
 ];
 
 export const TIME_SLOTS: string[] = (() => {
@@ -141,6 +139,7 @@ export const TIME_SLOTS: string[] = (() => {
   }
   return slots;
 })();
+
 
 export function formatINR(n: number): string {
   return `₹${n.toLocaleString("en-IN")}`;

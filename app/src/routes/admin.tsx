@@ -1170,18 +1170,34 @@ function PhotosTab() {
 
 /* ================================================================ Settings */
 
-const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?: string; type?: string }[] = [
-  { key: "brandName", label: "Brand name", placeholder: "AlphaQ Gaming" },
-  { key: "whatsapp", label: "WhatsApp", hint: "Powers the floating chat button.", placeholder: "919876543210" },
+const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?: string; type?: string; section?: string }[] = [
+  // — Brand & Contact —
+  { key: "brandName", label: "Brand name", placeholder: "AlphaQ Gaming", section: "Brand & Contact" },
   { key: "phone", label: "Phone", placeholder: "+91 98765 43210" },
   { key: "email", label: "Email", placeholder: "hello@alphaq.gg" },
-  { key: "instagram", label: "Instagram", placeholder: "@alphaqgaming" },
-  { key: "city", label: "City", placeholder: "Bengaluru" },
-  { key: "hours", label: "Hours", placeholder: "10:00 – 20:00 daily" },
-  { key: "upiId", label: "UPI ID", hint: "Powers the booking UPI QR.", placeholder: "alphaq@upi" },
-  { key: "upiName", label: "UPI name", hint: "Payee name shown in the booking UPI QR.", placeholder: "AlphaQ Gaming" },
-  { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability + booking counts.", placeholder: "10", type: "number" },
-  { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability + booking counts.", placeholder: "3", type: "number" },
+  { key: "instagram", label: "Instagram handle", placeholder: "@alphaqgaming" },
+  { key: "city", label: "City / Area", placeholder: "Indore, Madhya Pradesh" },
+  { key: "address", label: "Full address / Google Maps link", hint: "Paste the venue address or Google Maps share link — shown in the footer and contact section.", placeholder: "Shop No. 12, ABC Mall, Vijay Nagar, Indore 452001", section: "Venue" },
+  { key: "hours", label: "Opening hours", placeholder: "Tue–Sun · 11:00 AM – 8:00 PM" },
+  // — UPI / Payment —
+  { key: "upiId", label: "UPI ID", hint: "Powers the booking UPI QR code.", placeholder: "alphaq@upi", section: "Payments" },
+  { key: "upiName", label: "UPI payee name", hint: "Name shown in the UPI QR.", placeholder: "AlphaQ Gaming" },
+  // — Setup counts —
+  { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability and booking counts.", placeholder: "10", type: "number", section: "Setup counts" },
+  { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability and booking counts.", placeholder: "3", type: "number" },
+  // — PC Pricing —
+  { key: "pcPrice30m", label: "PC — 30-minute price (₹)", hint: "e.g. 50", placeholder: "50", type: "number", section: "PC Pricing" },
+  { key: "pcPrice1h", label: "PC — Per hour price (₹)", placeholder: "100", type: "number" },
+  { key: "pcPriceDay", label: "PC — Full-day pass (₹)", placeholder: "500", type: "number" },
+  // — PS5 Pricing —
+  { key: "ps5Price30m", label: "PS5 — 30-minute price (₹)", placeholder: "60", type: "number", section: "PS5 Pricing" },
+  { key: "ps5Price1h", label: "PS5 — Per hour price (₹)", placeholder: "120", type: "number" },
+  { key: "ps5PriceDay", label: "PS5 — Full-day pass (₹)", placeholder: "600", type: "number" },
+  // — Stats (\"Why AlphaQ\" section) —
+  { key: "statSetups", label: "Stat: Pro setups count", placeholder: "13", section: "Stats" },
+  { key: "statRefresh", label: "Stat: Refresh rate", placeholder: "240Hz" },
+  { key: "statPing", label: "Stat: Local ping", placeholder: "<20ms" },
+  { key: "statTitles", label: "Stat: Game titles count", placeholder: "7+" },
 ];
 
 function SettingsTab() {
@@ -1256,22 +1272,46 @@ function SettingsTab() {
   return (
     <div className="mx-auto max-w-2xl">
       <FormCard title="Arena settings">
-        <form onSubmit={save} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {SETTINGS_FIELDS.map((f) => (
-              <div key={f.key} className={f.key === "brandName" ? "sm:col-span-2" : ""}>
-                <label className={labelCls}>{f.label}</label>
-                <input
-                  type={f.type ?? "text"}
-                  className={inputCls}
-                  value={values[f.key] ?? ""}
-                  onChange={(e) => set(f.key, e.target.value)}
-                  placeholder={f.placeholder}
-                />
-                {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
-              </div>
-            ))}
-          </div>
+        <form onSubmit={save} className="space-y-6">
+          {(() => {
+            let lastSection = "";
+            return SETTINGS_FIELDS.map((f) => {
+              const showHeader = f.section && f.section !== lastSection;
+              if (showHeader) lastSection = f.section!;
+              const isFullWidth = f.key === "brandName" || f.key === "address";
+              const isTextarea = f.key === "address";
+              return (
+                <div key={f.key}>
+                  {showHeader && (
+                    <p className="mb-3 mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80 border-b border-border pb-1">
+                      {f.section}
+                    </p>
+                  )}
+                  <div className={isFullWidth ? "col-span-2" : ""}>
+                    <label className={labelCls}>{f.label}</label>
+                    {isTextarea ? (
+                      <textarea
+                        rows={3}
+                        className={`${inputCls} resize-none`}
+                        value={values[f.key] ?? ""}
+                        onChange={(e) => set(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                      />
+                    ) : (
+                      <input
+                        type={f.type ?? "text"}
+                        className={inputCls}
+                        value={values[f.key] ?? ""}
+                        onChange={(e) => set(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                      />
+                    )}
+                    {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
+                  </div>
+                </div>
+              );
+            });
+          })()}
           <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save settings
           </button>

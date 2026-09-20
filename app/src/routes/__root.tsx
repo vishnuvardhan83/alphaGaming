@@ -10,8 +10,8 @@ import { Toaster } from "sonner";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../lib/auth";
-import { WhatsAppButton } from "../components/whatsapp-button";
 
+import { ChatButton } from "../components/whatsapp-button";
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -86,7 +86,7 @@ function RootComponent() {
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
-        <WhatsAppButton />
+        <ChatButton />
         <Toaster theme="dark" position="bottom-right" />
       </AuthProvider>
     </QueryClientProvider>

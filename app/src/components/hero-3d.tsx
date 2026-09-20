@@ -1,37 +1,37 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 /**
- * Hero3D — a subtle 3D animated background for the hero: an electric-green
- * wireframe torus-knot + glowing core, over a drifting green particle field,
- * on a transparent canvas. (The AlphaQ emblem is overlaid in the hero markup.)
+ * Hero3D — rotating metallic AlphaQ "Q" emblem (Torus + diagonal tail).
+ * Features RoomEnvironment reflections, electric-green rim lights, directional key light,
+ * and mouse-tracking parallax response matching the alphaq-web visual.
  */
 export function Hero3D(): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const container = containerRef.current;
-    if (!container) return;
+    const host = containerRef.current;
+    if (!host) return;
 
     try {
       const probe = document.createElement('canvas');
-      const gl = probe.getContext('webgl') || probe.getContext('experimental-webgl');
+      const gl = probe.getContext('webgl2') || probe.getContext('webgl');
       if (!gl) return;
     } catch {
       return;
     }
 
-    const GREEN = 0x1ee07a;
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const width = () => host.clientWidth || 1;
+    const height = () => host.clientHeight || 1;
 
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(width(), height());
     renderer.setClearColor(0x000000, 0);
 
     const canvas = renderer.domElement;
@@ -39,127 +39,116 @@ export function Hero3D(): JSX.Element {
     canvas.style.height = '100%';
     canvas.style.display = 'block';
     canvas.style.pointerEvents = 'none';
-    container.appendChild(canvas);
+    host.appendChild(canvas);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0, 6);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-    const keyLight = new THREE.PointLight(GREEN, 1.6, 50);
-    keyLight.position.set(4, 5, 5);
-    const rimLight = new THREE.PointLight(0x0affc0, 0.8, 50);
-    rimLight.position.set(-5, -3, 2);
-    scene.add(ambient, keyLight, rimLight);
+    const camera = new THREE.PerspectiveCamera(38, width() / height(), 0.1, 100);
+    camera.position.set(0, 0, 8.5);
 
-    // Wireframe torus-knot hero object.
-    const knotGeo = new THREE.TorusKnotGeometry(1.35, 0.42, 140, 20, 2, 3);
-    const knotMat = new THREE.MeshStandardMaterial({
-      color: GREEN,
-      emissive: GREEN,
-      emissiveIntensity: 0.35,
-      metalness: 0.6,
-      roughness: 0.35,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.55,
+    // ---- Build the metallic "Q": beveled ring + diagonal tail bar ----
+    const emblem = new THREE.Group();
+    const metal = new THREE.MeshStandardMaterial({
+      color: 0x1ee07a,
+      metalness: 0.95,
+      roughness: 0.22,
+      envMapIntensity: 1.35,
     });
-    const knot = new THREE.Mesh(knotGeo, knotMat);
-    scene.add(knot);
 
-    // Solid glowing inner icosahedron for depth.
-    const coreGeo = new THREE.IcosahedronGeometry(0.55, 0);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: GREEN,
-      emissive: GREEN,
-      emissiveIntensity: 0.9,
-      metalness: 0.2,
-      roughness: 0.5,
-      flatShading: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    scene.add(core);
+    const ringGeo = new THREE.TorusGeometry(1.2, 0.36, 48, 120);
+    const ring = new THREE.Mesh(ringGeo, metal);
+    emblem.add(ring);
 
-    // Drifting particle field.
-    const PARTICLE_COUNT = 320;
-    const positions = new Float32Array(PARTICLE_COUNT * 3);
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      positions[i * 3 + 0] = (Math.random() - 0.5) * 16;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 12;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
-    }
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const particleMat = new THREE.PointsMaterial({
-      color: GREEN,
-      size: 0.05,
-      sizeAttenuation: true,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const particles = new THREE.Points(particleGeo, particleMat);
-    scene.add(particles);
+    const tailGeo = new THREE.BoxGeometry(0.35, 1.2, 0.35);
+    const tail = new THREE.Mesh(tailGeo, metal);
+    tail.position.set(0.82, -0.82, 0);
+    tail.rotation.z = Math.PI / 4;
+    emblem.add(tail);
 
-    const setSize = (): void => {
-      const w = container.clientWidth || 1;
-      const h = container.clientHeight || 1;
+    emblem.rotation.set(0.5, -0.6, 0.1);
+    scene.add(emblem);
+
+    // ---- Lights (green rim + white key for metallic sheen) ----
+    scene.add(new THREE.AmbientLight(0x0c2a1c, 1.2));
+    const key = new THREE.DirectionalLight(0xffffff, 2.4);
+    key.position.set(5, 6, 5);
+    scene.add(key);
+
+    const rimA = new THREE.PointLight(0x1ee07a, 60, 40);
+    rimA.position.set(-6, 2, 3);
+    scene.add(rimA);
+
+    const rimB = new THREE.PointLight(0x6bffab, 40, 40);
+    rimB.position.set(4, -4, 5);
+    scene.add(rimB);
+
+    setReady(true);
+
+    let pointerX = 0;
+    let pointerY = 0;
+    let rafId = 0;
+    let visible = true;
+
+    const onPointer = (e: PointerEvent) => {
+      pointerX = e.clientX / window.innerWidth - 0.5;
+      pointerY = e.clientY / window.innerHeight - 0.5;
+    };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+    }, { threshold: 0.01 });
+    io.observe(host);
+
+    const ro = new ResizeObserver(() => {
+      const w = width();
+      const h = height();
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-    };
-    setSize();
-
-    const resizeObserver = new ResizeObserver(() => {
-      setSize();
-      if (prefersReducedMotion) renderer.render(scene, camera);
     });
-    resizeObserver.observe(container);
+    ro.observe(host);
 
-    let rafId = 0;
-    const clock = new THREE.Clock();
-    const renderFrame = (): void => {
-      const t = clock.getElapsedTime();
-      knot.rotation.x = t * 0.12;
-      knot.rotation.y = t * 0.18;
-      core.rotation.x = -t * 0.25;
-      core.rotation.y = t * 0.3;
-      particles.rotation.y = t * 0.03;
-      camera.position.x = Math.sin(t * 0.15) * 0.35;
-      camera.position.y = Math.cos(t * 0.12) * 0.25;
-      camera.lookAt(0, 0, 0);
+    const render = () => {
+      rafId = requestAnimationFrame(render);
+      if (!visible) return;
+      if (!prefersReduced) {
+        emblem.rotation.y += 0.0032;
+        emblem.rotation.x += (-pointerY * 0.4 + 0.5 - emblem.rotation.x) * 0.05;
+        emblem.position.x += (pointerX * 0.6 - emblem.position.x) * 0.05;
+      }
       renderer.render(scene, camera);
     };
-
-    if (prefersReducedMotion) {
-      renderer.render(scene, camera);
-    } else {
-      const loop = (): void => {
-        renderFrame();
-        rafId = window.requestAnimationFrame(loop);
-      };
-      rafId = window.requestAnimationFrame(loop);
-    }
+    render();
 
     return () => {
-      if (rafId) window.cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-      scene.clear();
-      knotGeo.dispose();
-      knotMat.dispose();
-      coreGeo.dispose();
-      coreMat.dispose();
-      particleGeo.dispose();
-      particleMat.dispose();
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('pointermove', onPointer);
+      io.disconnect();
+      ro.disconnect();
+      ringGeo.dispose();
+      tailGeo.dispose();
+      metal.dispose();
+      pmrem.dispose();
       renderer.dispose();
-      if (canvas.parentNode === container) container.removeChild(canvas);
+      if (canvas.parentNode === host) host.removeChild(canvas);
     };
   }, []);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div ref={containerRef} className="relative h-full w-full">
+      {!ready && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span className="font-display text-8xl font-black text-primary/40 drop-shadow-[0_0_50px_rgba(30,224,122,0.4)]">
+            Q
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default Hero3D;
+

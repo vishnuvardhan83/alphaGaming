@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Gamepad2, Menu, X, LogOut, LayoutDashboard, Shield, CalendarClock } from "lucide-react";
+import { Menu, X, ArrowRight, LogOut, LayoutDashboard, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
 const LINKS = [
@@ -18,136 +18,143 @@ export function SiteNav() {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Gamepad2 className="h-5 w-5" />
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#06090b]/85 backdrop-blur-md">
+      <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6">
+        {/* Brand logo matching Screenshot 1 */}
+        <Link to="/" className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#6bffab] to-[#0fb866] font-display text-sm font-extrabold text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.45)]">
+            AQ
           </span>
-          <span className="font-display text-lg font-bold tracking-widest">
-            ALPHA<span className="text-primary">Q</span>
+          <span className="font-display text-xl font-bold tracking-wider text-white">
+            ALPHAQ
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
+        {/* Center navigation links */}
+        <nav className="hidden items-center gap-8 lg:flex">
           {LINKS.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              className="text-sm font-medium text-muted-foreground transition hover:text-white"
             >
               {l.label}
             </a>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        {/* Right CTA buttons */}
+        <div className="hidden items-center gap-3 lg:flex">
           {user ? (
             <>
               <Link
-                to="/book"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-              >
-                Book a setup
-              </Link>
-              <Link
                 to="/dashboard"
-                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm text-foreground transition hover:border-primary/50"
+                className="flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-1.5 text-sm font-medium text-white transition hover:border-primary/50"
               >
                 <LayoutDashboard className="h-4 w-4" /> Dashboard
               </Link>
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm text-foreground transition hover:border-primary/50"
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-1.5 text-sm font-medium text-white transition hover:border-primary/50"
                 >
                   <Shield className="h-4 w-4" /> Admin
                 </Link>
               )}
+              <Link
+                to="/book"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.35)] transition hover:bg-[#6bffab]"
+              >
+                Book a setup
+              </Link>
               <button
                 onClick={async () => {
                   await signOut();
                   navigate({ to: "/" });
                 }}
-                className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-muted-foreground transition hover:text-white"
               >
-                <LogOut className="h-4 w-4" /> Sign out
+                <LogOut className="h-3.5 w-3.5" /> Sign out
               </button>
             </>
           ) : (
             <>
               <Link
                 to="/auth"
-                className="rounded-md px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                className="rounded-full border border-white/10 bg-white/[0.02] px-5 py-1.5 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
               >
-                Sign in
+                Login
               </Link>
               <Link
-                to="/book"
-                className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+                to="/auth"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-5 py-1.5 text-sm font-semibold text-[#04140b] shadow-[0_6px_20px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
               >
-                <CalendarClock className="h-4 w-4" /> Book a setup
+                Sign up <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           )}
         </div>
 
+        {/* Mobile menu button */}
         <button
-          className="rounded-md p-2 text-foreground lg:hidden"
+          className="rounded-md p-2 text-white lg:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
+      {/* Mobile drawer */}
       {open && (
-        <div className="border-t border-border bg-background px-4 py-4 lg:hidden">
+        <div className="border-t border-white/[0.08] bg-[#06090b]/98 px-6 py-5 lg:hidden">
           <nav className="flex flex-col gap-3">
             {LINKS.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="text-sm text-muted-foreground"
+                className="py-1 text-base font-medium text-muted-foreground hover:text-white"
               >
                 {l.label}
               </a>
             ))}
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-3 pt-3 border-t border-white/10">
               {user ? (
                 <>
-                  <Link to="/dashboard" onClick={() => setOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm">
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-full border border-white/10 px-4 py-2 text-center text-sm font-medium"
+                  >
                     Dashboard
                   </Link>
-                  {isAdmin && (
-                    <Link to="/admin" onClick={() => setOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm">
-                      Admin
-                    </Link>
-                  )}
-                  <button
-                    onClick={async () => {
-                      setOpen(false);
-                      await signOut();
-                      navigate({ to: "/" });
-                    }}
-                    className="rounded-md px-4 py-2 text-sm text-muted-foreground"
+                  <Link
+                    to="/book"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-[#04140b]"
                   >
-                    Sign out
-                  </button>
+                    Book
+                  </Link>
                 </>
               ) : (
-                <Link to="/auth" onClick={() => setOpen(false)} className="rounded-md border border-border px-4 py-2 text-sm">
-                  Sign in
-                </Link>
+                <>
+                  <Link
+                    to="/auth"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-full border border-white/10 px-4 py-2 text-center text-sm font-semibold"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/auth"
+                    onClick={() => setOpen(false)}
+                    className="flex-1 rounded-full bg-primary px-4 py-2 text-center text-sm font-semibold text-[#04140b]"
+                  >
+                    Sign up
+                  </Link>
+                </>
               )}
-              <Link
-                to="/book"
-                onClick={() => setOpen(false)}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-              >
-                Book a setup
-              </Link>
             </div>
           </nav>
         </div>
@@ -155,3 +162,4 @@ export function SiteNav() {
     </header>
   );
 }
+

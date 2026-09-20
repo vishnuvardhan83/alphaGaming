@@ -1,33 +1,22 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Trophy } from "lucide-react";
+import { Loader2, Trophy, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import {
   listTournaments,
   registerForTournament,
   listMyRegistrations,
+  listLeaderboard,
   type Tournament,
+  type LeaderboardEntry,
 } from "@/lib/db";
-import { TOURNAMENTS } from "@/lib/content";
 
-const STATUS_STYLES: Record<string, string> = {
-  open: "bg-primary/15 text-primary",
-  soon: "border border-border text-muted-foreground",
-  full: "bg-destructive/10 text-destructive",
-  closed: "bg-destructive/10 text-destructive",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "Registrations open",
-  soon: "Coming soon",
-  full: "Full",
-  closed: "Closed",
-};
 
 export function TournamentsSection() {
   const { user, profile, phone } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[] | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
   const [openForm, setOpenForm] = useState<string | null>(null);
 
@@ -35,28 +24,18 @@ export function TournamentsSection() {
     let active = true;
     void (async () => {
       try {
-        const list = await listTournaments();
+        const [tList, lbList] = await Promise.all([
+          listTournaments(),
+          listLeaderboard(),
+        ]);
         if (!active) return;
-        if (list.length > 0) {
-          setTournaments(list);
-        } else {
-          // Fallback: normalize static content to the DB Tournament shape.
-          setTournaments(
-            TOURNAMENTS.map((t, i) => ({
-              id: `static-${i}`,
-              game: t.game,
-              format: t.format,
-              date: t.date,
-              prize: t.prize,
-              status: t.status,
-              description: "",
-              capacity: 0,
-              createdAt: 0,
-            })),
-          );
-        }
+        setTournaments(tList);
+        setLeaderboard(lbList);
       } catch {
-        if (active) setTournaments([]);
+        if (active) {
+          setTournaments([]);
+          setLeaderboard([]);
+        }
       }
     })();
     return () => {
@@ -81,44 +60,94 @@ export function TournamentsSection() {
   const list = useMemo(() => tournaments ?? [], [tournaments]);
 
   return (
-    <section id="tournaments" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24">
-      <div className="flex items-center gap-3">
-        <Trophy className="h-6 w-6 text-primary" />
-        <p className="font-display text-sm font-semibold uppercase tracking-[0.3em] text-primary">
-          Tournaments
-        </p>
-      </div>
-      <h2 className="mt-3 font-display text-3xl font-bold sm:text-4xl">Compete at AlphaQ</h2>
+    <section id="tournaments" className="scroll-mt-20 border-t border-white/[0.08] py-20 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* Header matching Screenshot 3 */}
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-[#8ba095]">
+              Compete
+            </p>
+            <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-white">
+              Tournaments &amp; Leaderboards
+            </h2>
+          </div>
+          <Link
+            to={user ? "/dashboard" : "/auth"}
+            className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-sm font-semibold text-white/90 transition hover:border-primary/50 hover:text-white"
+          >
+            Register your team <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
 
-      {tournaments === null ? (
-        <div className="mt-12 flex justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {/* Tournaments Grid */}
+        {tournaments === null ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : list.length === 0 ? (
+          <p className="text-muted-foreground">
+            No tournaments scheduled right now — check back soon.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {list.map((t) => (
+              <TournamentCard
+                key={t.id}
+                tournament={t}
+                signedIn={!!user}
+                registered={registeredIds.has(t.id)}
+                formOpen={openForm === t.id}
+                defaultName={profile?.name ?? ""}
+                onToggleForm={() => setOpenForm((cur) => (cur === t.id ? null : t.id))}
+                onRegistered={() => {
+                  setRegisteredIds((prev) => new Set(prev).add(t.id));
+                  setOpenForm(null);
+                }}
+                userId={user?.uid ?? ""}
+                phone={phone ?? ""}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Season Leaderboard card matching Screenshot 3 */}
+        <div className="mt-6 rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 backdrop-blur-md">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Trophy className="h-5 w-5 text-primary" />
+              <h3 className="font-sans text-base font-semibold text-white">
+                Season leaderboard
+              </h3>
+            </div>
+            <span className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 font-display text-[11px] font-semibold uppercase tracking-wider text-[#8ba095]">
+              Preview
+            </span>
+          </div>
+
+          <ol className="divide-y divide-white/[0.06] text-sm">
+            {leaderboard.slice(0, 5).map((entry, index) => {
+              const rankStr = String(entry.rank || index + 1).padStart(2, "0");
+              return (
+                <li
+                  key={entry.id || entry.team}
+                  className="flex items-center justify-between py-3.5"
+                >
+                  <span className="flex items-center gap-3 text-white">
+                    <span className="font-display font-bold text-primary">
+                      {rankStr}
+                    </span>
+                    <span className="font-medium text-white/95">{entry.team}</span>
+                  </span>
+                  <span className="font-mono text-sm text-[#8ba095]">
+                    {entry.points.toLocaleString()} pts
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
         </div>
-      ) : list.length === 0 ? (
-        <p className="mt-12 text-muted-foreground">
-          No tournaments scheduled right now — check back soon.
-        </p>
-      ) : (
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
-          {list.map((t) => (
-            <TournamentCard
-              key={t.id}
-              tournament={t}
-              signedIn={!!user}
-              registered={registeredIds.has(t.id)}
-              formOpen={openForm === t.id}
-              defaultName={profile?.name ?? ""}
-              onToggleForm={() => setOpenForm((cur) => (cur === t.id ? null : t.id))}
-              onRegistered={() => {
-                setRegisteredIds((prev) => new Set(prev).add(t.id));
-                setOpenForm(null);
-              }}
-              userId={user?.uid ?? ""}
-              phone={phone ?? ""}
-            />
-          ))}
-        </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -152,7 +181,8 @@ function TournamentCard({
     setPlayerName(defaultName);
   }, [defaultName]);
 
-  const canRegister = t.status === "open";
+  const isOpen = t.status === "open";
+  const isSoon = t.status === "soon";
 
   async function submit() {
     if (!playerName.trim()) {
@@ -178,88 +208,107 @@ function TournamentCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-display text-xl font-bold">{t.game}</h3>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
-            STATUS_STYLES[t.status] ?? STATUS_STYLES["soon"]
-          }`}
-        >
-          {STATUS_LABELS[t.status] ?? t.status}
-        </span>
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">{t.format}</p>
-      {t.description && <p className="mt-2 text-sm text-muted-foreground">{t.description}</p>}
-      <div className="mt-4 flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">{t.date}</span>
-        <span className="font-display font-bold text-primary">{t.prize}</span>
-      </div>
+    <div className="rounded-2xl border border-white/[0.08] bg-[#0c1114]/80 p-6 backdrop-blur-md transition hover:border-primary/40">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h3 className="font-display text-xl font-bold text-white">{t.game}</h3>
+            {isOpen ? (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-0.5 text-xs font-semibold text-primary">
+                Registration open
+              </span>
+            ) : isSoon ? (
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-xs font-semibold text-amber-400">
+                Coming soon
+              </span>
+            ) : (
+              <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-0.5 text-xs font-semibold text-red-400">
+                Full
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-xs sm:text-sm text-[#8ba095]">
+            {t.format} · {t.date} · {t.prize}
+          </p>
+        </div>
 
-      <div className="mt-5">
-        {registered ? (
-          <span className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-            Registered ✓
-          </span>
-        ) : !canRegister ? (
-          <span className="text-xs text-muted-foreground">Registration is not open yet.</span>
-        ) : !signedIn ? (
-          <Link
-            to="/auth"
-            className="inline-block rounded-md bg-primary px-5 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground transition hover:opacity-90"
-          >
-            Register / Compete
-          </Link>
-        ) : !formOpen ? (
-          <button
-            onClick={onToggleForm}
-            className="rounded-md bg-primary px-5 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground transition hover:opacity-90"
-          >
-            Register / Compete
-          </button>
-        ) : (
-          <div className="space-y-3 rounded-lg border border-border bg-background/50 p-4">
-            <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground">
-                Player name
-              </label>
-              <input
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Your in-game name"
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
-              />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-widest text-muted-foreground">
-                Team name <span className="normal-case">(optional)</span>
-              </label>
-              <input
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                placeholder="Squad name"
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={submit}
-                disabled={busy}
-                className="flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-              >
-                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm
-              </button>
+        {/* Action button matching Screenshot 3 */}
+        <div className="shrink-0">
+          {registered ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary">
+              Registered ✓
+            </span>
+          ) : isOpen ? (
+            signedIn ? (
               <button
                 onClick={onToggleForm}
-                className="rounded-md border border-border px-5 py-2.5 text-sm text-muted-foreground transition hover:text-foreground"
+                className="rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
               >
-                Cancel
+                Register
               </button>
-            </div>
-          </div>
-        )}
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-block rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab]"
+              >
+                Register
+              </Link>
+            )
+          ) : (
+            <button
+              onClick={() => toast.info(`We'll notify you when ${t.game} registrations open.`)}
+              className="rounded-full border border-white/10 bg-white/[0.02] px-5 py-2 text-xs font-medium text-white/80 transition hover:border-white/20 hover:text-white"
+            >
+              Notify me
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Expanded quick registration form if toggled */}
+      {formOpen && (
+        <div className="mt-4 space-y-3 border-t border-white/[0.08] pt-4">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8ba095]">
+              Player name
+            </label>
+            <input
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Your in-game handle"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#06090b] px-3 py-2 text-sm text-white outline-none focus:border-primary/60"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[#8ba095]">
+              Team name <span className="normal-case text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              placeholder="Squad name"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#06090b] px-3 py-2 text-sm text-white outline-none focus:border-primary/60"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={submit}
+              disabled={busy}
+              className="flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-xs font-bold uppercase tracking-wider text-[#04140b] shadow-[0_4px_14px_rgba(30,224,122,0.4)] transition hover:bg-[#6bffab] disabled:opacity-50"
+            >
+              {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Confirm registration
+            </button>
+            <button
+              onClick={onToggleForm}
+              className="rounded-full border border-white/10 px-4 py-2 text-xs text-[#8ba095] hover:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
