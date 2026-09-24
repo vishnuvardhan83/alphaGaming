@@ -10,6 +10,7 @@
     "dev": "node --watch index.js",
     "migrate": "node migrations/runner.js",
     "seed": "node db.js --seed",
+    "reset-admin": "node reset-admin.js",
     "db": "node inspect.js"
   },
   "dependencies": {
