@@ -656,11 +656,13 @@ async function ensureDatabase() {
 async function init({ skipMigrations = false } = {}) {
   await ensureDatabase();
   await waitForDb();
+
   if (!skipMigrations) {
     const { runMigrations } = require("./migrations/runner");
     await runMigrations();
+    await seed();
   }
-  await seed();
+
   return db.kind;
 }
 
