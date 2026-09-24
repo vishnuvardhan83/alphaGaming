@@ -18,9 +18,8 @@ import {
   type FoodItem,
   type FoodOrder,
 } from "@/lib/db";
-import { FOOD, formatINR } from "@/lib/content";
+import { formatINR } from "@/lib/content";
 
-// Menu row this page works with. Static FOOD has no id → we synthesize one.
 type MenuItem = Pick<FoodItem, "id" | "name" | "category" | "price" | "image">;
 
 const ALL = "All";
@@ -85,22 +84,13 @@ export function FoodOrder() {
             listMyFoodOrders(user.uid),
           ]);
           if (!active) return;
-          const items: MenuItem[] =
-            food.length > 0
-              ? food.map((f) => ({
-                  id: f.id,
-                  name: f.name,
-                  category: f.category,
-                  price: f.price,
-                  image: f.image,
-                }))
-              : FOOD.map((f) => ({
-                  id: f.name,
-                  name: f.name,
-                  category: f.category,
-                  price: f.price,
-                  image: "",
-                }));
+          const items: MenuItem[] = food.map((f) => ({
+            id: f.id,
+            name: f.name,
+            category: f.category,
+            price: f.price,
+            image: f.image,
+          }));
           setMenu(items);
           setOrders(myOrders.filter((o) => o.bookingId === b.id));
         }

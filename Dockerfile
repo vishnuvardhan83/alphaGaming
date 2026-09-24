@@ -24,4 +24,4 @@ COPY server/ ./
 COPY --from=server-deps /srv/server/node_modules ./node_modules
 COPY --from=web /web/dist /srv/app/dist
 EXPOSE 4000
-CMD ["node", "index.js"]
+CMD ["sh", "-c", "node migrations/runner.js && node index.js"]
