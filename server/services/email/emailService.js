@@ -68,7 +68,43 @@ async function sendEmail({ to, subject, text, html }) {
   const from = getFromAddress();
   const startTime = Date.now();
 
-  // 1. If RESEND_API_KEY is configured, send over HTTPS Port 443 (completely bypasses cloud SMTP port blocks)
+  // 1. If BREVO_API_KEY is configured, send via Brevo HTTPS API (Port 443 - sends to ANY recipient without custom domain!)
+  if (process.env.BREVO_API_KEY) {
+    try {
+      console.log(`[Email Service] Dispatching to ${to} via Brevo HTTPS API (Subject: "${subject}")...`);
+      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "api-key": process.env.BREVO_API_KEY.trim(),
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "AlphaQ Gaming",
+            email: (process.env.EMAIL_USER || "v9347976462@gmail.com").trim(),
+          },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html || text,
+          textContent: text,
+        }),
+      });
+
+      const brevoData = await brevoRes.json();
+      if (!brevoRes.ok) {
+        throw new Error(brevoData.message || JSON.stringify(brevoData));
+      }
+
+      console.log(`[Email Service] ✓ Sent via Brevo HTTPS to ${to} in ${Date.now() - startTime}ms (ID: ${brevoData.messageId})`);
+      return { messageId: brevoData.messageId };
+    } catch (brevoErr) {
+      console.error(`[Email Service Brevo Error]:`, brevoErr.message);
+      console.warn(`[Email Service Warning] Trying next available email provider...`);
+    }
+  }
+
+  // 2. If RESEND_API_KEY is configured, send over HTTPS Port 443
   if (process.env.RESEND_API_KEY) {
     try {
       console.log(`[Email Service] Dispatching to ${to} via Resend HTTPS API (Subject: "${subject}")...`);
@@ -96,6 +132,9 @@ async function sendEmail({ to, subject, text, html }) {
       return { messageId: resData.id };
     } catch (resendErr) {
       console.error(`[Email Service Resend Error]:`, resendErr.message);
+      if (resendErr.message && resendErr.message.includes("only send testing emails to your own email address")) {
+        console.warn(`[Resend Free Domain Notice]: onboarding@resend.dev can only send to your account email (${process.env.EMAIL_USER || "v9347976462@gmail.com"}). To send to other customers, verify your domain at resend.com/domains or set BREVO_API_KEY.`);
+      }
       console.warn(`[Email Service Warning] Falling back to direct SMTP...`);
     }
   }
