@@ -1,6 +1,12 @@
 // AlphaQ Gaming — Express API (normal login, bookings, UPI approval, food,
 // tournaments, reviews, gallery, rewards, admin settings).
 // Backed by MySQL (production) or SQLite (fallback) — see db.js.
+const dns = require("dns");
+if (dns.setDefaultResultOrder) {
+  try {
+    dns.setDefaultResultOrder("ipv4first");
+  } catch (e) {}
+}
 const path = require("path");
 const fs = require("fs");
 const express = require("express");

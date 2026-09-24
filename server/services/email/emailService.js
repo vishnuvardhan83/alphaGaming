@@ -2,6 +2,13 @@
 // Sends emails using Nodemailer with SMTP configuration from environment variables.
 // In dev or when SMTP is not configured, provides a mock fallback that logs to console.
 
+const dns = require("dns");
+if (dns.setDefaultResultOrder) {
+  try {
+    dns.setDefaultResultOrder("ipv4first");
+  } catch (e) {}
+}
+
 const nodemailer = require("nodemailer");
 const verifyEmailTemplate = require("./templates/verifyEmail");
 const forgotPasswordTemplate = require("./templates/forgotPassword");
@@ -25,6 +32,9 @@ function createTransportConfig(port = 465) {
     port,
     secure: is465, // true for 465 (SSL direct), false for 587 (STARTTLS)
     family: 4, // Force IPv4 to prevent IPv6 DNS timeout in cloud containers & local networks
+    lookup: (hostname, options, callback) => {
+      dns.lookup(hostname, { family: 4 }, callback);
+    },
     auth: {
       user,
       pass,
