@@ -14,29 +14,43 @@ let isConfigured = false;
 function getTransporter() {
   if (transporter) return transporter;
 
-  const host = process.env.EMAIL_HOST;
-  const user = process.env.EMAIL_USER;
-  const rawPass = process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.trim() : "";
+  const host = (process.env.EMAIL_HOST || "").trim();
+  const user = (process.env.EMAIL_USER || "").trim();
+  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
   const pass = rawPass.replace(/\s+/g, "");
   const port = Number(process.env.EMAIL_PORT || 587);
   const secure =
     String(process.env.EMAIL_SECURE).toLowerCase() === "true" || port === 465;
 
-  if (host && user && pass) {
+  if (user && pass && (host || process.env.EMAIL_SERVICE)) {
     isConfigured = true;
-    transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: {
-        user,
-        pass,
-      },
-      // Timeout settings to avoid hanging requests if SMTP provider is unreachable
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
+    const isGmail = host === "smtp.gmail.com" || host.includes("gmail") || process.env.EMAIL_SERVICE === "gmail" || user.endsWith("@gmail.com");
+
+    if (isGmail) {
+      transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user,
+          pass,
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
+      });
+    } else {
+      transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure,
+        auth: {
+          user,
+          pass,
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
+      });
+    }
   } else {
     isConfigured = false;
   }
