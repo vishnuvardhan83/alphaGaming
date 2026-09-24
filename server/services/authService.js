@@ -111,6 +111,8 @@ async function registerUser({ phone, name, email, password, confirmPassword }) {
     purpose: "verify_email",
   });
 
+  console.log(`[Auth Registration] Generated OTP for ${normEmail}: ${otpResult.otp}`);
+
   // Non-blocking asynchronous email dispatch so registration does not fail if SMTP has high latency
   setImmediate(async () => {
     try {
