@@ -66,6 +66,40 @@ function getAdminEmail() {
  */
 async function sendEmail({ to, subject, text, html }) {
   const from = getFromAddress();
+  const startTime = Date.now();
+
+  // 1. If RESEND_API_KEY is configured, send over HTTPS Port 443 (completely bypasses cloud SMTP port blocks)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      console.log(`[Email Service] Dispatching to ${to} via Resend HTTPS API (Subject: "${subject}")...`);
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.RESEND_FROM || process.env.EMAIL_FROM || "AlphaQ Gaming <onboarding@resend.dev>",
+          to: [to],
+          subject,
+          html: html || text,
+          text,
+        }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.message || JSON.stringify(resData));
+      }
+
+      console.log(`[Email Service] ✓ Sent via Resend HTTPS to ${to} in ${Date.now() - startTime}ms (ID: ${resData.id})`);
+      return { messageId: resData.id };
+    } catch (resendErr) {
+      console.error(`[Email Service Resend Error]:`, resendErr.message);
+      console.warn(`[Email Service Warning] Falling back to direct SMTP...`);
+    }
+  }
+
   const user = (process.env.EMAIL_USER || "").trim();
   const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
 
@@ -81,8 +115,7 @@ async function sendEmail({ to, subject, text, html }) {
     return { messageId: `mock-${Date.now()}`, mocked: true };
   }
 
-  const startTime = Date.now();
-  console.log(`[Email Service] Dispatching email to ${to} (Subject: "${subject}")...`);
+  console.log(`[Email Service] Dispatching email to ${to} via SMTP (Subject: "${subject}")...`);
 
   // Attempt Port 465 (Direct SSL IPv4)
   try {
@@ -113,6 +146,7 @@ async function sendEmail({ to, subject, text, html }) {
       return fallbackInfo;
     } catch (fallbackErr) {
       console.error(`[Email Service Error] Both SMTP ports (465 & 587) failed sending to ${to}:`, fallbackErr.message);
+      console.warn(`[Cloud Notice] If hosted on Railway, outbound SMTP ports 25, 465, and 587 are blocked platform-wide to prevent spam. Set RESEND_API_KEY in Railway to send via HTTPS Port 443.`);
       throw fallbackErr;
     }
   }
