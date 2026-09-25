@@ -16,10 +16,16 @@ async function resolveIpv4Host(host) {
 }
 
 function isResendMode() {
+  const service = (process.env.EMAIL_SERVICE || "").toLowerCase();
   const host = (process.env.EMAIL_HOST || "").toLowerCase();
   const user = (process.env.EMAIL_USER || "").toLowerCase();
+
+  // If explicitly configured for Gmail, do not use Resend
+  if (service === "gmail" || host.includes("gmail") || user.includes("@gmail.com")) {
+    return false;
+  }
+
   const pass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.RESEND_API_KEY || "").trim();
-  const service = (process.env.EMAIL_SERVICE || "").toLowerCase();
 
   return (
     service === "resend" ||
