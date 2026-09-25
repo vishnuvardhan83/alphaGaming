@@ -22,22 +22,32 @@ const UPLOAD_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const explicit = (process.env.DB_CLIENT || "").toLowerCase();
+const mysqlUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
+const mysqlHost = process.env.MYSQL_HOST || process.env.MYSQLHOST;
+const mysqlPort = Number(process.env.MYSQL_PORT || process.env.MYSQLPORT || 3306);
+const mysqlUser = process.env.MYSQL_USER || process.env.MYSQLUSER || "root";
+const mysqlPassword =
+  process.env.MYSQL_PASSWORD !== undefined
+    ? process.env.MYSQL_PASSWORD
+    : (process.env.MYSQLPASSWORD || "");
+const mysqlDatabase = process.env.MYSQL_DATABASE || process.env.MYSQLDATABASE || "alphaq";
+
 const USE_MYSQL =
   explicit === "mysql" ||
-  (explicit !== "sqlite" && (!!process.env.DATABASE_URL || !!process.env.MYSQL_HOST));
+  (explicit !== "sqlite" && (!!mysqlUrl || !!mysqlHost));
 
 /* ------------------------------------------------------------- drivers --- */
 
 function makeMysql() {
   const mysql = require("mysql2/promise");
-  const pool = process.env.DATABASE_URL
-    ? mysql.createPool(process.env.DATABASE_URL)
+  const pool = mysqlUrl
+    ? mysql.createPool(mysqlUrl)
     : mysql.createPool({
-        host: process.env.MYSQL_HOST || "localhost",
-        port: Number(process.env.MYSQL_PORT || 3306),
-        user: process.env.MYSQL_USER || "root",
-        password: process.env.MYSQL_PASSWORD || "",
-        database: process.env.MYSQL_DATABASE || "alphaq",
+        host: mysqlHost || "localhost",
+        port: mysqlPort,
+        user: mysqlUser,
+        password: mysqlPassword,
+        database: mysqlDatabase,
         waitForConnections: true,
         connectionLimit: Number(process.env.MYSQL_POOL || 10),
         charset: "utf8mb4",
@@ -61,6 +71,37 @@ function makeMysql() {
     },
     async exec(sql) {
       await pool.query(sql);
+    },
+    async transaction(callback) {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const tx = {
+          async get(sql, params = []) {
+            const [rows] = await conn.query(sql, params);
+            return rows[0];
+          },
+          async all(sql, params = []) {
+            const [rows] = await conn.query(sql, params);
+            return rows;
+          },
+          async run(sql, params = []) {
+            const [res] = await conn.query(sql, params);
+            return { lastInsertRowid: res.insertId, changes: res.affectedRows };
+          },
+          async exec(sql) {
+            await conn.query(sql);
+          },
+        };
+        const result = await callback(tx);
+        await conn.commit();
+        return result;
+      } catch (err) {
+        await conn.rollback();
+        throw err;
+      } finally {
+        conn.release();
+      }
     },
     async close() {
       await pool.end();
@@ -89,6 +130,32 @@ function makeSqlite() {
     },
     async exec(sql) {
       sdb.exec(sql);
+    },
+    async transaction(callback) {
+      sdb.exec("BEGIN IMMEDIATE");
+      try {
+        const tx = {
+          async get(sql, params = []) {
+            return sdb.prepare(sql).get(...params);
+          },
+          async all(sql, params = []) {
+            return sdb.prepare(sql).all(...params);
+          },
+          async run(sql, params = []) {
+            const info = sdb.prepare(sql).run(...params);
+            return { lastInsertRowid: Number(info.lastInsertRowid), changes: info.changes };
+          },
+          async exec(sql) {
+            sdb.exec(sql);
+          },
+        };
+        const result = await callback(tx);
+        sdb.exec("COMMIT");
+        return result;
+      } catch (err) {
+        sdb.exec("ROLLBACK");
+        throw err;
+      }
     },
     async close() {
       sdb.close();
@@ -420,18 +487,29 @@ async function addReward(userId, delta, reason) {
 async function seed() {
   const DEFAULT_SETTINGS = {
     brandName: "AlphaQ Gaming",
-    whatsapp: "919573976462",
-    phone: "919573976462",
-    email: "hello@alphaq.gg",
+    whatsapp: (process.env.ADMIN_PHONES || "9573976462").split(",")[0].trim(),
+    phone: (process.env.ADMIN_PHONES || "9573976462").split(",")[0].trim(),
+    email: process.env.ADMIN_EMAIL || "v9347976462@gmail.com",
     instagram: "alphaq.gaming",
     city: "Indore, Madhya Pradesh",
     hours: "Tue–Sun · 11:00 AM – 8:00 PM",
     upiId: "alphaq@upi",
     upiName: "AlphaQ Gaming",
-    upiPhone: "9573976462",
+    upiPhone: (process.env.ADMIN_PHONES || "9573976462").split(",")[0].trim(),
     appBg: "",
     pcCount: "10",
     ps5Count: "3",
+    pcPrice30m: "50",
+    pcPrice1h: "100",
+    pcPriceDay: "500",
+    ps5Price30m: "60",
+    ps5Price1h: "120",
+    ps5PriceDay: "600",
+    statSetups: "13",
+    statRefresh: "240Hz",
+    statPing: "<20ms",
+    statTitles: "7+",
+    address: "",
   };
   for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) {
     const exists = await db.get("SELECT 1 FROM settings WHERE `key` = ?", [k]);
@@ -444,13 +522,24 @@ async function seed() {
     .map(normalizePhone)
     .filter(Boolean);
   const adminPhone = adminPhones[0];
-  if (adminPhone && !(await db.get("SELECT 1 FROM users WHERE phone = ?", [adminPhone]))) {
-    const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || "admin123", 10);
-    await db.run(
-      "INSERT INTO users(phone, name, email, password_hash, role, created_at) VALUES(?,?,?,?,?,?)",
-      [adminPhone, "AlphaQ Admin", "", hash, "admin", now()],
-    );
-    console.log(`Seeded admin: phone ${adminPhone} / password "admin123" (change it!)`);
+  const adminEmail = (process.env.ADMIN_EMAIL || "v9347976462@gmail.com").trim().toLowerCase();
+
+  if (adminPhone) {
+    const existingAdmin = await db.get("SELECT id, email FROM users WHERE phone = ?", [adminPhone]);
+    if (!existingAdmin) {
+      const hash = bcrypt.hashSync(process.env.ADMIN_PASSWORD || "admin123", 10);
+      await db.run(
+        "INSERT INTO users(phone, name, email, password_hash, role, reward_points, blocked, email_verified, email_verified_at, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+        [adminPhone, "AlphaQ Admin", adminEmail, hash, "admin", 0, 0, 1, now(), now()],
+      );
+      console.log(`Seeded admin: phone ${adminPhone} / email ${adminEmail} / password "admin123" (change it!)`);
+    } else if (!existingAdmin.email) {
+      await db.run(
+        "UPDATE users SET email = ?, email_verified = 1, email_verified_at = ? WHERE id = ?",
+        [adminEmail, now(), existingAdmin.id],
+      );
+      console.log(`Updated admin (id: ${existingAdmin.id}) email to ${adminEmail}`);
+    }
   }
 
   // No sample content is seeded — games, food, tournaments and reviews all start
@@ -518,8 +607,8 @@ async function waitForDb() {
 // as the "wait for MySQL to boot" step. Skipped when DATABASE_URL is used (the
 // DB name is embedded there) or on SQLite.
 async function ensureDatabase() {
-  if (db.kind !== "mysql" || process.env.DATABASE_URL) return;
-  const name = process.env.MYSQL_DATABASE || "alphaq";
+  if (db.kind !== "mysql" || mysqlUrl) return;
+  const name = mysqlDatabase;
   const mysql = require("mysql2/promise");
 
   const maxRetries = Number(process.env.DB_CONNECT_RETRIES || 12);
@@ -530,10 +619,10 @@ async function ensureDatabase() {
     let conn;
     try {
       conn = await mysql.createConnection({
-        host: process.env.MYSQL_HOST || "localhost",
-        port: Number(process.env.MYSQL_PORT || 3306),
-        user: process.env.MYSQL_USER || "root",
-        password: process.env.MYSQL_PASSWORD || "",
+        host: mysqlHost || "localhost",
+        port: mysqlPort,
+        user: mysqlUser,
+        password: mysqlPassword,
         connectTimeout: Number(process.env.MYSQL_CONNECT_TIMEOUT || 10000),
       });
       // Backtick-escape the identifier; CREATE DATABASE cannot be parameterized.
@@ -564,11 +653,16 @@ async function ensureDatabase() {
   }
 }
 
-async function init() {
+async function init({ skipMigrations = false } = {}) {
   await ensureDatabase();
   await waitForDb();
-  await ensureSchema();
-  await seed();
+
+  if (!skipMigrations) {
+    const { runMigrations } = require("./migrations/runner");
+    await runMigrations();
+    await seed();
+  }
+
   return db.kind;
 }
 
