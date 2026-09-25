@@ -23,7 +23,16 @@ async function handle(res: Response): Promise<any> {
   } catch {
     /* no body */
   }
-  if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+  if (!res.ok) {
+    const err: any = new Error((data && data.error) || `Request failed (${res.status})`);
+    if (data) {
+      err.data = data;
+      err.requiresVerification = data.requiresVerification;
+      err.email = data.email;
+      err.status = res.status;
+    }
+    throw err;
+  }
   return data;
 }
 

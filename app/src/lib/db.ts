@@ -133,10 +133,12 @@ export interface AdminUser {
   id: number;
   phone: string;
   name: string;
-  email?: string | null;
+  email: string | null;
   role: string;
   rewardPoints: number;
   blocked?: boolean;
+  emailVerified?: boolean;
+  emailVerifiedAt?: number | null;
   createdAt?: number;
 }
 
@@ -203,9 +205,9 @@ const LEADERBOARD_STORAGE_KEY = "aq_season_leaderboard";
 export async function listLeaderboard(game?: string): Promise<LeaderboardEntry[]> {
   try {
     const remote = await apiGet<LeaderboardEntry[]>(`/leaderboard${game ? `?game=${encodeURIComponent(game)}` : ""}`);
-    if (Array.isArray(remote) && remote.length > 0) return remote;
+    if (Array.isArray(remote)) return remote;
   } catch {
-    /* fallback to stored / seed */
+    /* fallback to stored */
   }
 
   if (typeof localStorage !== "undefined") {
@@ -213,7 +215,7 @@ export async function listLeaderboard(game?: string): Promise<LeaderboardEntry[]
       const stored = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as LeaderboardEntry[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return game ? parsed.filter((p) => !p.game || p.game === game) : parsed;
         }
       }
@@ -222,7 +224,7 @@ export async function listLeaderboard(game?: string): Promise<LeaderboardEntry[]
     }
   }
 
-  return game ? SEED_LEADERBOARD.filter((p) => !p.game || p.game === game) : SEED_LEADERBOARD;
+  return [];
 }
 
 export async function saveLeaderboard(entries: LeaderboardEntry[]): Promise<void> {
@@ -343,6 +345,7 @@ export const adjustReward = (userId: number, delta: number, reason: string) =>
 export const createUser = (data: {
   phone: string;
   name: string;
+  email: string;
   password: string;
   role: "admin" | "staff" | "customer";
 }) => apiPost<AdminUser>("/admin/users", data);

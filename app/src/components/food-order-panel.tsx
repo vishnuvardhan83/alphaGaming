@@ -10,10 +10,9 @@ import {
   type FoodItem,
   type FoodOrder,
 } from "@/lib/db";
-import { FOOD, formatINR } from "@/lib/content";
+import { formatINR } from "@/lib/content";
 import { Modal } from "@/components/modal";
 
-// FoodItem shape used inside this panel. Static FOOD has no id, so we synthesize one.
 type MenuItem = Pick<FoodItem, "id" | "name" | "category" | "price">;
 
 const FOOD_ORDER_STATUS_STYLES: Record<string, string> = {
@@ -52,10 +51,12 @@ export function FoodOrderPanel() {
             listMyFoodOrders(user.uid),
           ]);
           if (!active) return;
-          const items: MenuItem[] =
-            food.length > 0
-              ? food.map((f) => ({ id: f.id, name: f.name, category: f.category, price: f.price }))
-              : FOOD.map((f) => ({ id: f.name, name: f.name, category: f.category, price: f.price }));
+          const items: MenuItem[] = food.map((f) => ({
+            id: f.id,
+            name: f.name,
+            category: f.category,
+            price: f.price,
+          }));
           setMenu(items);
           setCategory(items[0]?.category ?? "");
           setOrders(myOrders.filter((o) => o.bookingId === booking.id));
