@@ -206,18 +206,6 @@ pm2 restart alphaq
 | `MYSQL_DATABASE` | Database name | `alphaq` |
 | `DATABASE_URL` | Alt. single connection string (`mysql://user:pass@host:port/db`) | — |
 | `SQLITE_PATH` | SQLite file path (fallback mode) | `server/data/alphaq.db` |
-| `ADMIN_EMAIL` | Admin email address receiving booking notifications | `v9347976462@gmail.com` |
-| `EMAIL_HOST` | SMTP server host (e.g. `smtp.gmail.com`) | empty (dev mock mode) |
-| `EMAIL_PORT` | SMTP port (`587` for TLS, `465` for SSL) | `587` |
-| `EMAIL_SECURE` | Set `true` if port 465, `false` for STARTTLS | `false` |
-| `EMAIL_USER` | SMTP username / sender account email | empty |
-| `EMAIL_PASSWORD` | SMTP app password or secret | empty |
-| `EMAIL_FROM` | From header (e.g. `"AlphaQ Gaming" <hello@alphaq.gg>`) | `EMAIL_USER` |
-| `OTP_EXPIRY_MINUTES` | Verification OTP validity window in minutes | `5` |
-| `OTP_MAX_ATTEMPTS` | Max failed OTP verification attempts before invalidation | `5` |
-| `OTP_RESEND_COOLDOWN_SECONDS` | Cooldown period between OTP resend requests in seconds | `60` |
 
-Setting any `MYSQL_*` var (or `DATABASE_URL` / `MYSQL_URL`) switches to MySQL automatically;
+Setting any `MYSQL_*` var (or `DATABASE_URL`) switches to MySQL automatically;
 set `DB_CLIENT=sqlite` to force the local file DB.
-Migrations run automatically before the server starts (`npm run migrate`).
-

@@ -1,30 +1,8 @@
-// Thin REST client for the AlphaQ server. Supports VITE_API_URL for production
-// (e.g. Fly.io backend) and falls back to "/api" (Vite proxy) for local development.
-// JWT token is kept in localStorage.
+// Thin REST client for the AlphaQ server. Same-origin `/api` (Vite proxies to
+// the Node server in dev; the server serves the built app in prod). JWT token
+// is kept in localStorage.
 
-const RAW_API_URL = (
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  ""
-).trim().replace(/\/+$/, "");
-
-export const BACKEND_URL = RAW_API_URL.endsWith("/api")
-  ? RAW_API_URL.slice(0, -4)
-  : RAW_API_URL;
-
-export const API_BASE = RAW_API_URL
-  ? (RAW_API_URL.endsWith("/api") ? RAW_API_URL : `${RAW_API_URL}/api`)
-  : "/api";
-
-export function resolveUploadUrl(url: string | null | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("/uploads/") && BACKEND_URL) {
-    return `${BACKEND_URL}${url}`;
-  }
-  return url;
-}
-
+const API_BASE = "/api";
 const TOKEN_KEY = "aq_token";
 
 export function getToken(): string | null {
@@ -45,16 +23,7 @@ async function handle(res: Response): Promise<any> {
   } catch {
     /* no body */
   }
-  if (!res.ok) {
-    const err: any = new Error((data && data.error) || `Request failed (${res.status})`);
-    if (data) {
-      err.data = data;
-      err.requiresVerification = data.requiresVerification;
-      err.email = data.email;
-      err.status = res.status;
-    }
-    throw err;
-  }
+  if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
   return data;
 }
 

@@ -1650,7 +1650,7 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   // — UPI / Payment —
   { key: "upiId", label: "UPI ID", hint: "Powers the booking UPI QR code.", placeholder: "alphaq@upi", section: "Payments" },
   { key: "upiName", label: "UPI payee name", hint: "Name shown in the UPI QR.", placeholder: "AlphaQ Gaming" },
-  { key: "upiPhone", label: "UPI phone number", hint: "Direct phone number for GPay/PhonePe payments.", placeholder: "e.g. 9876543210" },
+  { key: "upiPhone", label: "UPI phone number", hint: "Direct phone number for GPay/PhonePe payments.", placeholder: "9573976462" },
   // — Setup counts —
   { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability and booking counts.", placeholder: "10", type: "number", section: "Setup counts" },
   { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability and booking counts.", placeholder: "3", type: "number" },
@@ -2268,7 +2268,7 @@ function SettingsTab() {
                       className={inputCls}
                       value={values.upiPhone ?? ""}
                       onChange={(e) => set("upiPhone", e.target.value)}
-                      placeholder="e.g. 9876543210"
+                      placeholder="9573976462"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Mobile number for GPay/PhonePe/Paytm direct payments.</p>
                   </div>
@@ -2489,7 +2489,6 @@ function UsersTab() {
   const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"customer" | "staff" | "admin">("customer");
@@ -2565,25 +2564,12 @@ function UsersTab() {
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      toast.error("Please enter a valid email address.");
-      return;
-    }
-
     setSaving(true);
     try {
-      await createUser({ phone, name, email: cleanEmail, password, role });
-      toast.success(
-        role === "admin"
-          ? "Admin user created. Verification email sent."
-          : role === "staff"
-          ? "Staff user created. Verification email sent."
-          : "User created. Verification email sent.",
-      );
+      await createUser({ phone, name, password, role });
+      toast.success(role === "admin" ? "Admin user created." : role === "staff" ? "Staff user created." : "User created.");
       setPhone("");
       setName("");
-      setEmail("");
       setPassword("");
       setRole("customer");
       setOpen(false);
@@ -2638,26 +2624,10 @@ function UsersTab() {
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                    <span>+{u.phone}</span>
-                    <span>·</span>
-                    <span>{u.rewardPoints} points</span>
-                    {u.email && (
-                      <>
-                        <span>·</span>
-                        <span className="opacity-90">{u.email}</span>
-                        <span
-                          className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
-                            u.emailVerified
-                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                              : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                          }`}
-                        >
-                          {u.emailVerified ? "Verified" : "Unverified"}
-                        </span>
-                      </>
-                    )}
-                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    +{u.phone} · {u.rewardPoints} points
+                    {u.email && <span className="ml-1.5 opacity-80">· {u.email}</span>}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
@@ -2804,20 +2774,6 @@ function UsersTab() {
           <div>
             <label className={labelCls}>Name</label>
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Staff name" required />
-          </div>
-          <div>
-            <label className={labelCls}>Email *</label>
-            <input
-              type="email"
-              className={inputCls}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              required
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              A welcome email with a verification OTP will be sent to this email address.
-            </p>
           </div>
           <div>
             <label className={labelCls}>Password</label>

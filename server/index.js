@@ -1,12 +1,6 @@
 // AlphaQ Gaming — Express API (normal login, bookings, UPI approval, food,
 // tournaments, reviews, gallery, rewards, admin settings).
 // Backed by MySQL (production) or SQLite (fallback) — see db.js.
-const dns = require("dns");
-if (dns.setDefaultResultOrder) {
-  try {
-    dns.setDefaultResultOrder("ipv4first");
-  } catch (e) {}
-}
 const path = require("path");
 const fs = require("fs");
 const express = require("express");
@@ -27,77 +21,30 @@ const {
   UPLOAD_DIR,
 } = require("./db");
 
-const {
-  registerUser,
-  verifyEmail,
-  loginUser,
-  resendVerificationOtp,
-  forgotPassword,
-  verifyResetOtp,
-  resetPassword,
-  adminCreateUser,
-  publicUser,
-} = require("./services/authService");
-const { notifyAdminNewBooking } = require("./services/bookingNotificationService");
-const { startPeriodicCleanup } = require("./services/otpService");
-
 const JWT_SECRET = process.env.JWT_SECRET || "alphaq-dev-secret-change-me";
 const PORT = process.env.PORT || 4000;
-const HOST = process.env.HOST || "0.0.0.0";
 const ADMIN_PHONES = (process.env.ADMIN_PHONES || "9573976462")
   .split(",")
   .map(normalizePhone)
   .filter(Boolean);
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:4000",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:4000",
-];
-
-if (process.env.FRONTEND_URL) {
-  process.env.FRONTEND_URL.split(",").forEach((origin) => {
-    const trimmed = origin.trim();
-    if (trimmed && !allowedOrigins.includes(trimmed)) {
-      allowedOrigins.push(trimmed);
-    }
-  });
-}
-
 const app = express();
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (such as mobile apps, curl, server-to-server)
-      if (!origin) return callback(null, true);
-      if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        allowedOrigins.includes("*")
-      ) {
-        return callback(null, true);
-      }
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
-    },
-    credentials: true,
-  })
-);
-
+app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-// Health check endpoints for monitoring (Fly.io / Vercel / load balancers)
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
 /* --------------------------------------------------------- serializers --- */
+
+const publicUser = (u) => ({
+  id: u.id,
+  uid: String(u.id),
+  phone: u.phone,
+  name: u.name,
+  email: u.email || null,
+  role: u.role,
+  rewardPoints: u.reward_points ?? 0,
+  blocked: !!u.blocked,
+  createdAt: u.created_at,
+});
 
 const toBooking = (b) => ({
   id: String(b.id),
@@ -193,13 +140,6 @@ function auth(required = true) {
       const u = await db.get("SELECT * FROM users WHERE id = ?", [payload.id]);
       if (!u) return res.status(401).json({ error: "Session expired." });
       if (u.blocked) return res.status(403).json({ error: "Your account has been suspended. Please contact AlphaQ staff." });
-      if (u.email && !u.email_verified && u.role !== "admin") {
-        return res.status(403).json({
-          error: "Please verify your email address to access your account.",
-          requiresVerification: true,
-          email: u.email,
-        });
-      }
       req.user = u;
       next();
     } catch {
@@ -235,67 +175,38 @@ function sign(user) {
 app.post(
   "/api/auth/register",
   wrap(async (req, res) => {
-    const result = await registerUser(req.body);
-    res.json(result);
-  }),
-);
-
-app.post(
-  "/api/auth/verify-email",
-  wrap(async (req, res) => {
-    const result = await verifyEmail(req.body);
-    res.json(result);
-  }),
-);
-
-app.post(
-  "/api/auth/resend-verification-otp",
-  wrap(async (req, res) => {
-    const result = await resendVerificationOtp(req.body);
-    res.json(result);
-  }),
-);
-
-app.post(
-  "/api/auth/forgot-password",
-  wrap(async (req, res) => {
-    const result = await forgotPassword(req.body);
-    res.json(result);
-  }),
-);
-
-app.post(
-  "/api/auth/verify-reset-otp",
-  wrap(async (req, res) => {
-    const result = await verifyResetOtp(req.body);
-    res.json(result);
-  }),
-);
-
-app.post(
-  "/api/auth/reset-password",
-  wrap(async (req, res) => {
-    const result = await resetPassword(req.body);
-    res.json(result);
+    const phone = normalizePhone(req.body.phone);
+    const name = String(req.body.name || "").trim();
+    const password = String(req.body.password || "");
+    const email = String(req.body.email || "").trim();
+    if (!/^\d{11,15}$/.test(phone))
+      throw new Error("Enter a valid phone number with country code.");
+    if (!name) throw new Error("Please enter your name.");
+    if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+    if (await db.get("SELECT 1 FROM users WHERE phone = ?", [phone]))
+      throw new Error("An account with this number already exists. Try signing in.");
+    const role = ADMIN_PHONES.includes(phone) ? "admin" : "customer";
+    const hash = bcrypt.hashSync(password, 10);
+    const info = await db.run(
+      "INSERT INTO users(phone, name, email, password_hash, role, created_at) VALUES(?,?,?,?,?,?)",
+      [phone, name, email, hash, role, now()],
+    );
+    const u = await db.get("SELECT * FROM users WHERE id = ?", [info.lastInsertRowid]);
+    res.json({ token: sign(u), user: publicUser(u) });
   }),
 );
 
 app.post(
   "/api/auth/login",
   wrap(async (req, res) => {
-    try {
-      const result = await loginUser(req.body);
-      res.json(result);
-    } catch (err) {
-      if (err.requiresVerification) {
-        return res.status(err.status || 403).json({
-          error: err.message,
-          requiresVerification: true,
-          email: err.email,
-        });
-      }
-      throw err;
-    }
+    const phone = normalizePhone(req.body.phone);
+    const password = String(req.body.password || "");
+    const u = await db.get("SELECT * FROM users WHERE phone = ?", [phone]);
+    if (!u || !bcrypt.compareSync(password, u.password_hash))
+      throw new Error("Incorrect phone number or password.");
+    if (u.blocked)
+      throw new Error("Your account has been suspended. Please contact AlphaQ staff.");
+    res.json({ token: sign(u), user: publicUser(u) });
   }),
 );
 
@@ -308,9 +219,6 @@ app.get("/api/auth/me", auth(), (req, res) => {
 const PUBLIC_SETTING_KEYS = [
   "brandName", "whatsapp", "phone", "email", "instagram", "city", "hours", "upiId", "upiName", "upiPhone",
   "arenaImage", "appBg", "pcCount", "ps5Count",
-  "pcPrice30m", "pcPrice1h", "pcPriceDay",
-  "ps5Price30m", "ps5Price1h", "ps5PriceDay",
-  "statSetups", "statRefresh", "statPing", "statTitles", "address",
 ];
 
 app.get(
@@ -406,9 +314,6 @@ app.post(
       ],
     );
     const row = await db.get("SELECT * FROM bookings WHERE id = ?", [info.lastInsertRowid]);
-    setImmediate(() => {
-      void notifyAdminNewBooking({ booking: row, user: req.user });
-    });
     res.json(toBooking(row));
   }),
 );
@@ -1130,13 +1035,26 @@ app.get(
   }),
 );
 
-// Create a user (optionally an admin/staff account). Email is mandatory.
+// Create a user (optionally an admin/staff account).
 app.post(
   "/api/admin/users",
   ...adminOnly,
   wrap(async (req, res) => {
-    const user = await adminCreateUser(req.body);
-    res.json(user);
+    const phone = normalizePhone(req.body.phone);
+    const name = String(req.body.name || "").trim();
+    const password = String(req.body.password || "");
+    const role = req.body.role === "admin" ? "admin" : "customer";
+    if (!/^\d{11,15}$/.test(phone)) throw new Error("Enter a valid phone number.");
+    if (!name) throw new Error("Name is required.");
+    if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+    if (await db.get("SELECT 1 FROM users WHERE phone = ?", [phone]))
+      throw new Error("An account with this number already exists.");
+    const hash = bcrypt.hashSync(password, 10);
+    const info = await db.run(
+      "INSERT INTO users(phone, name, email, password_hash, role, created_at) VALUES(?,?,?,?,?,?)",
+      [phone, name, "", hash, role, now()],
+    );
+    res.json(publicUser(await db.get("SELECT * FROM users WHERE id = ?", [info.lastInsertRowid])));
   }),
 );
 
@@ -1207,36 +1125,17 @@ app.post(
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 // Serve the built frontend in production (single deployable server).
-const candidateDistDirs = [
-  process.env.STATIC_DIR,
-  path.resolve(__dirname, "..", "app", "dist"),
-  path.resolve(__dirname, "public"),
-].filter(Boolean);
-
-const DIST = candidateDistDirs.find((dir) => fs.existsSync(dir));
-if (DIST) {
+const DIST = path.join(__dirname, "..", "app", "dist");
+if (fs.existsSync(DIST)) {
   app.use(express.static(DIST));
-
-  // Express 4 compatible SPA fallback (serves index.html for /, /login, /admin, etc.)
-  // Never intercepts /api/*, /health, or /uploads/*
-  app.get("*", (req, res, next) => {
-    if (
-      req.path.startsWith("/api") ||
-      req.path.startsWith("/uploads") ||
-      req.path === "/health"
-    ) {
-      return next();
-    }
-    res.sendFile(path.join(DIST, "index.html"));
-  });
+  app.get(/^(?!\/api|\/uploads).*/, (req, res) => res.sendFile(path.join(DIST, "index.html")));
 }
 
-// Run migrations, seed, start periodic OTP cleanup, then listen.
+// Create tables + seed, then start listening.
 init()
   .then((kind) => {
-    startPeriodicCleanup(db);
-    app.listen(PORT, HOST, () =>
-      console.log(`AlphaQ API listening on http://${HOST}:${PORT} (db: ${kind})`),
+    app.listen(PORT, () =>
+      console.log(`AlphaQ API listening on http://localhost:${PORT} (db: ${kind})`),
     );
   })
   .catch((e) => {

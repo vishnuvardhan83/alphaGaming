@@ -5,9 +5,7 @@ alphaq-web/.angular/
 backend/target/
 # local env & secrets (never commit real keys)
 .env
-.env.*
 **/.env
-**/.env.*
 !**/.env.example
 **/run-local.sh
 # os / editor

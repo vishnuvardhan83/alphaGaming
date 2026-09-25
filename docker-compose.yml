@@ -42,25 +42,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string}
       ADMIN_PHONES: ${ADMIN_PHONES:-9573976462}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-v9347976462@gmail.com}
-      EMAIL_HOST: ${EMAIL_HOST:-}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_SECURE: ${EMAIL_SECURE:-false}
-      EMAIL_USER: ${EMAIL_USER:-}
-      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
-      EMAIL_FROM: ${EMAIL_FROM:-}
-      OTP_EXPIRY_MINUTES: ${OTP_EXPIRY_MINUTES:-5}
-      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
-      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
     ports:
       - "4000:4000"
     volumes:
       # Persist uploaded images (gallery, food photos, backgrounds).
       - uploads:/srv/server/uploads
-      # Persist SQLite fallback database if DB_CLIENT=sqlite is used
-      - sqlite_data:/srv/server/data
 
 volumes:
   db_data:
   uploads:
-  sqlite_data:

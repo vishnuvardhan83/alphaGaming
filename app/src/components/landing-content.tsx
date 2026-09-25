@@ -32,6 +32,8 @@ const Hero3D = lazy(() =>
 import {
   BRAND,
   PRICING,
+  GAMES,
+  FOOD,
   FEATURES,
   HOTSPOTS,
   formatINR,
@@ -85,28 +87,32 @@ function useAvailability() {
   return avail;
 }
 
-// Games grid: exclusively uses admin-managed catalogue from the backend database.
+// Games grid: prefer admin-managed catalogue, fall back to static content.
 function useGames() {
-  const [games, setGames] = useState<{ title: string; platform: string[]; tags: string[] }[]>([]);
+  const [games, setGames] = useState<{ title: string; platform: string[]; tags: string[] }[]>(GAMES);
   useEffect(() => {
     void listGames(true)
       .then((list) => {
-        setGames(list.map((g) => ({ title: g.title, platform: g.platform, tags: g.tags })));
+        if (list.length > 0) {
+          setGames(list.map((g) => ({ title: g.title, platform: g.platform, tags: g.tags })));
+        }
       })
-      .catch(() => { setGames([]); });
+      .catch(() => { });
   }, []);
   return games;
 }
 
-// Food preview grid: exclusively uses admin-managed menu from the backend database.
+// Food preview grid: prefer admin-managed menu, fall back to static content.
 function useFood() {
-  const [food, setFood] = useState<{ name: string; category: string; price: number; image?: string }[]>([]);
+  const [food, setFood] = useState<{ name: string; category: string; price: number; image?: string }[]>(FOOD);
   useEffect(() => {
     void listFood(true)
       .then((list) => {
-        setFood(list.map((f) => ({ name: f.name, category: f.category, price: f.price, image: f.image })));
+        if (list.length > 0) {
+          setFood(list.map((f) => ({ name: f.name, category: f.category, price: f.price, image: f.image })));
+        }
       })
-      .catch(() => { setFood([]); });
+      .catch(() => { });
   }, []);
   return food;
 }
@@ -608,44 +614,38 @@ export function LandingContent({
             </div>
           </div>
 
-          {filteredGames.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-              No games currently match this filter. Titles can be managed via the admin panel.
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredGames.map((g) => (
-                <div
-                  key={g.title}
-                  className="flex flex-col justify-between rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-md transition hover:border-primary/40 min-h-[140px]"
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-display text-lg font-bold text-foreground">{g.title}</h3>
-                    <div className="flex gap-1">
-                      {g.platform.map((p) => (
-                        <span
-                          key={p}
-                          className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
-                        >
-                          {p}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {g.tags.map((t) => (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredGames.map((g) => (
+              <div
+                key={g.title}
+                className="flex flex-col justify-between rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-md transition hover:border-primary/40 min-h-[140px]"
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className="font-display text-lg font-bold text-foreground">{g.title}</h3>
+                  <div className="flex gap-1">
+                    {g.platform.map((p) => (
                       <span
-                        key={t}
-                        className="rounded-md border border-border bg-card/40 px-2 py-0.5 text-[10px] text-muted-foreground"
+                        key={p}
+                        className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
                       >
-                        {t}
+                        {p}
                       </span>
                     ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {g.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-md border border-border bg-card/40 px-2 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
           <p className="mt-4 text-xs text-muted-foreground">
             More titles are added regularly — full library published once staff verifies availability.
           </p>
@@ -736,40 +736,34 @@ export function LandingContent({
             )}
           </div>
 
-          {/* food cards */}
-          {food.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-              Café menu items will be updated soon. Items can be managed via the admin panel.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              {food.slice(0, 6).map((item) => (
-                <div
-                  key={item.name}
-                  className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card/80 p-5 text-center backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
-                >
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="mb-3 h-10 w-10 rounded-xl object-cover border border-primary/20 bg-muted"
-                    />
-                  ) : (
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
-                      <Coffee className="h-5 w-5" />
-                    </div>
-                  )}
-                  <div className="text-sm font-semibold text-foreground">{item.name}</div>
-                  <div className="my-1 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    {item.category}
+          {/* 6 food cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {food.slice(0, 6).map((item) => (
+              <div
+                key={item.name}
+                className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card/80 p-5 text-center backdrop-blur-md transition hover:-translate-y-1 hover:border-primary/40"
+              >
+                {item.image ? (
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="mb-3 h-10 w-10 rounded-xl object-cover border border-primary/20 bg-muted"
+                  />
+                ) : (
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                    <Coffee className="h-5 w-5" />
                   </div>
-                  <div className="mt-1 font-display text-base font-bold text-primary">
-                    {formatINR(item.price)}
-                  </div>
+                )}
+                <div className="text-sm font-semibold text-foreground">{item.name}</div>
+                <div className="my-1 font-display text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  {item.category}
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="mt-1 font-display text-base font-bold text-primary">
+                  {formatINR(item.price)}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
