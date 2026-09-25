@@ -15,22 +15,54 @@ async function resolveIpv4Host(host) {
   return host;
 }
 
-async function createTransportConfig(port = 465) {
-  const rawHost = (process.env.EMAIL_HOST || "smtp.gmail.com").trim();
-  const domainHost = rawHost.includes("gmail") ? "smtp.gmail.com" : rawHost;
-  const user = (process.env.EMAIL_USER || "").trim();
-  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
-  const pass = rawPass.replace(/\s+/g, "");
+function isResendMode() {
+  const host = (process.env.EMAIL_HOST || "").toLowerCase();
+  const user = (process.env.EMAIL_USER || "").toLowerCase();
+  const pass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.RESEND_API_KEY || "").trim();
+  const service = (process.env.EMAIL_SERVICE || "").toLowerCase();
+
+  return (
+    service === "resend" ||
+    service === "resend_smtp" ||
+    host.includes("resend") ||
+    user === "resend" ||
+    pass.startsWith("re_") ||
+    Boolean(process.env.RESEND_API_KEY && (!process.env.EMAIL_HOST || process.env.EMAIL_HOST.includes("resend")))
+  );
+}
+
+async function createTransportConfig(portOverride = null) {
+  const isResend = isResendMode();
+
+  let domainHost;
+  let user;
+  let pass;
+
+  if (isResend) {
+    domainHost = "smtp.resend.com";
+    user = "resend";
+    const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.RESEND_API_KEY || "").trim();
+    pass = rawPass.replace(/["'\s]/g, "");
+  } else {
+    const rawHost = (process.env.EMAIL_HOST || "smtp.gmail.com").trim();
+    domainHost = rawHost.includes("gmail") ? "smtp.gmail.com" : rawHost;
+    user = (process.env.EMAIL_USER || process.env.ADMIN_EMAIL || "v9347976462@gmail.com").trim();
+    const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
+    pass = rawPass.replace(/["'\s]/g, "");
+  }
 
   if (!user || !pass) return null;
 
+  const defaultPort = isResend ? 465 : (parseInt(process.env.EMAIL_PORT, 10) || 465);
+  const port = portOverride || parseInt(process.env.EMAIL_PORT, 10) || defaultPort;
+  const isSecure = port === 465 || port === 2465 || process.env.EMAIL_SECURE === "true";
+
   const hostIp = await resolveIpv4Host(domainHost);
-  const is465 = port === 465;
 
   return nodemailer.createTransport({
     host: hostIp,
     port,
-    secure: is465, // true for 465 (SSL direct), false for 587 (STARTTLS)
+    secure: isSecure,
     auth: {
       user,
       pass,
@@ -45,147 +77,145 @@ async function createTransportConfig(port = 465) {
   });
 }
 
+function createGmailServiceTransport() {
+  const user = (process.env.EMAIL_USER || process.env.ADMIN_EMAIL || "v9347976462@gmail.com").trim();
+  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
+  const pass = rawPass.replace(/["'\s]/g, "");
+
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user,
+      pass,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+    connectionTimeout: 10000,
+  });
+}
+
 function getFromAddress() {
   if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
-  if (process.env.EMAIL_USER) return `"AlphaQ Gaming" <${process.env.EMAIL_USER}>`;
-  if (process.env.ADMIN_EMAIL) return `"AlphaQ Gaming" <${process.env.ADMIN_EMAIL}>`;
-  return '"AlphaQ Gaming" <noreply@alphaqgaming.com>';
+  if (process.env.RESEND_FROM) return process.env.RESEND_FROM;
+
+  const isResend = isResendMode();
+  if (isResend) {
+    return '"AlphaQ Gaming" <onboarding@resend.dev>';
+  }
+
+  const user = (process.env.EMAIL_USER || process.env.ADMIN_EMAIL || "v9347976462@gmail.com").trim();
+  if (user && user.includes("@") && user.toLowerCase() !== "resend") {
+    return `"AlphaQ Gaming" <${user}>`;
+  }
+  return '"AlphaQ Gaming" <v9347976462@gmail.com>';
 }
 
 function getAdminEmail() {
   return (
     process.env.ADMIN_EMAIL ||
-    process.env.EMAIL_USER ||
-    ""
+    (process.env.EMAIL_USER && process.env.EMAIL_USER.toLowerCase() !== "resend" ? process.env.EMAIL_USER : "") ||
+    "v9347976462@gmail.com"
   );
 }
 
 /**
- * Sends a generic email through configured SMTP or logs in dev.
- * Binds directly to IPv4 to prevent ENETUNREACH in cloud container networks without IPv6 routes.
+ * Sends an email through configured SMTP (Resend SMTP or Gmail SMTP) with automatic port failover.
  */
 async function sendEmail({ to, subject, text, html }) {
   const from = getFromAddress();
   const startTime = Date.now();
+  const isResend = isResendMode();
 
-  // 1. If BREVO_API_KEY is configured, send via Brevo HTTPS API (Port 443 - sends to ANY recipient without custom domain!)
-  if (process.env.BREVO_API_KEY) {
-    try {
-      console.log(`[Email Service] Dispatching to ${to} via Brevo HTTPS API (Subject: "${subject}")...`);
-      const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: {
-          "api-key": process.env.BREVO_API_KEY.trim(),
-          "Content-Type": "application/json",
-          accept: "application/json",
-        },
-        body: JSON.stringify({
-          sender: {
-            name: "AlphaQ Gaming",
-            email: (process.env.EMAIL_USER || "v9347976462@gmail.com").trim(),
-          },
-          to: [{ email: to }],
-          subject,
-          htmlContent: html || text,
-          textContent: text,
-        }),
-      });
+  const user = isResend ? "resend" : (process.env.EMAIL_USER || process.env.ADMIN_EMAIL || "v9347976462@gmail.com").trim();
+  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.RESEND_API_KEY || "").trim();
+  const pass = rawPass.replace(/["'\s]/g, "");
 
-      const brevoData = await brevoRes.json();
-      if (!brevoRes.ok) {
-        throw new Error(brevoData.message || JSON.stringify(brevoData));
-      }
-
-      console.log(`[Email Service] ✓ Sent via Brevo HTTPS to ${to} in ${Date.now() - startTime}ms (ID: ${brevoData.messageId})`);
-      return { messageId: brevoData.messageId };
-    } catch (brevoErr) {
-      console.error(`[Email Service Brevo Error]:`, brevoErr.message);
-      console.warn(`[Email Service Warning] Trying next available email provider...`);
-    }
-  }
-
-  // 2. If RESEND_API_KEY is configured, send over HTTPS Port 443
-  if (process.env.RESEND_API_KEY) {
-    try {
-      console.log(`[Email Service] Dispatching to ${to} via Resend HTTPS API (Subject: "${subject}")...`);
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: process.env.RESEND_FROM || process.env.EMAIL_FROM || "AlphaQ Gaming <onboarding@resend.dev>",
-          to: [to],
-          subject,
-          html: html || text,
-          text,
-        }),
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || JSON.stringify(resData));
-      }
-
-      console.log(`[Email Service] ✓ Sent via Resend HTTPS to ${to} in ${Date.now() - startTime}ms (ID: ${resData.id})`);
-      return { messageId: resData.id };
-    } catch (resendErr) {
-      console.error(`[Email Service Resend Error]:`, resendErr.message);
-      if (resendErr.message && resendErr.message.includes("only send testing emails to your own email address")) {
-        console.warn(`[Resend Free Domain Notice]: onboarding@resend.dev can only send to your account email (${process.env.EMAIL_USER || "v9347976462@gmail.com"}). To send to other customers, verify your domain at resend.com/domains or set BREVO_API_KEY.`);
-      }
-      console.warn(`[Email Service Warning] Falling back to direct SMTP...`);
-    }
-  }
-
-  const user = (process.env.EMAIL_USER || "").trim();
-  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
-
-  if (!user || !rawPass) {
+  if (!user || !pass || pass.includes("PASTE_") || pass.includes("YOUR_")) {
     console.log("\n=======================================================");
-    console.log("[EMAIL SERVICE - DEV/MOCK MODE (SMTP not configured)]");
-    console.log(`To:      ${to}`);
-    console.log(`From:    ${from}`);
-    console.log(`Subject: ${subject}`);
+    console.log("[EMAIL SERVICE - DEV/MOCK MODE (Password/Key not configured)]");
+    console.log(`Provider: ${isResend ? "Resend SMTP (smtp.resend.com)" : `Gmail SMTP (${user})`}`);
+    console.log(`To:       ${to}`);
+    console.log(`From:     ${from}`);
+    console.log(`Subject:  ${subject}`);
     console.log("-------------------------------------------------------");
     console.log(text || html);
     console.log("=======================================================\n");
     return { messageId: `mock-${Date.now()}`, mocked: true };
   }
 
-  console.log(`[Email Service] Dispatching email to ${to} via SMTP (Subject: "${subject}")...`);
+  const preferredPort = parseInt(process.env.EMAIL_PORT, 10) || 465;
+  const fallbackPort = preferredPort === 465 ? 587 : 465;
+  const providerLabel = isResend ? "Resend SMTP (smtp.resend.com)" : `Gmail SMTP (${user})`;
 
-  // Attempt Port 465 (Direct SSL IPv4)
+  console.log(`[Email Service] Dispatching email to ${to} via ${providerLabel} on Port ${preferredPort}...`);
+
+  // Attempt 1: Preferred Port (Port 465 direct SSL)
   try {
-    const mailer465 = await createTransportConfig(465);
-    const info = await mailer465.sendMail({
+    const mailer = await createTransportConfig(preferredPort);
+    const info = await mailer.sendMail({
       from,
       to,
       subject,
       text,
       html,
     });
-    console.log(`[Email Service] ✓ Sent to ${to} via Port 465 in ${Date.now() - startTime}ms (ID: ${info.messageId})`);
+    console.log(`[Email Service] ✓ Sent to ${to} via ${providerLabel} (Port ${preferredPort}) in ${Date.now() - startTime}ms (ID: ${info.messageId})`);
     return info;
-  } catch (err465) {
-    console.warn(`[Email Service Warning] Port 465 send to ${to} failed (${err465.message}). Retrying on Port 587...`);
+  } catch (errPrimary) {
+    console.warn(`[Email Service Warning] ${providerLabel} Port ${preferredPort} failed (${errPrimary.message}). Retrying on Port ${fallbackPort}...`);
 
-    // Fallback to Port 587 (STARTTLS IPv4)
+    // Check for Resend free tier recipient restriction
+    if (errPrimary.message && errPrimary.message.includes("only send testing emails to your own email address")) {
+      console.warn(`\n⚠️  [Resend Free Domain Notice]:`);
+      console.warn(`   Resend testing sender (onboarding@resend.dev) can only deliver to your Resend account email (v9347976462@gmail.com).`);
+      console.warn(`   To send to any recipient, verify your domain at https://resend.com/domains\n`);
+      throw errPrimary;
+    }
+
+    // Attempt 2: Fallback to alternate port (Port 587 STARTTLS)
     try {
-      const mailer587 = await createTransportConfig(587);
-      const fallbackInfo = await mailer587.sendMail({
+      const mailerFallback = await createTransportConfig(fallbackPort);
+      const fallbackInfo = await mailerFallback.sendMail({
         from,
         to,
         subject,
         text,
         html,
       });
-      console.log(`[Email Service] ✓ Fallback send (Port 587) to ${to} succeeded in ${Date.now() - startTime}ms (ID: ${fallbackInfo.messageId})`);
+      console.log(`[Email Service] ✓ Fallback send via ${providerLabel} (Port ${fallbackPort}) to ${to} succeeded in ${Date.now() - startTime}ms (ID: ${fallbackInfo.messageId})`);
       return fallbackInfo;
     } catch (fallbackErr) {
-      console.error(`[Email Service Error] Both SMTP ports (465 & 587) failed sending to ${to}:`, fallbackErr.message);
-      console.warn(`[Cloud Notice] If hosted on Railway, outbound SMTP ports 25, 465, and 587 are blocked platform-wide to prevent spam. Set RESEND_API_KEY in Railway to send via HTTPS Port 443.`);
+      if (isResend) {
+        console.warn(`[Email Service Warning] Resend SMTP ports failed or blocked by cloud network. Attempting Resend HTTPS API (Port 443)...`);
+        try {
+          const res = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${pass}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from,
+              to: [to],
+              subject,
+              html: html || text,
+              text,
+            }),
+          });
+          const resData = await res.json();
+          if (!res.ok) {
+            throw new Error(resData.message || JSON.stringify(resData));
+          }
+          console.log(`[Email Service] ✓ Sent to ${to} via Resend HTTPS fallback in ${Date.now() - startTime}ms (ID: ${resData.id})`);
+          return { messageId: resData.id };
+        } catch (resendHttpErr) {
+          console.error(`[Email Service Resend HTTPS Error]:`, resendHttpErr.message);
+          throw resendHttpErr;
+        }
+      }
+
+      console.error(`[Email Service Error] Both SMTP ports (${preferredPort} & ${fallbackPort}) failed sending to ${to}:`, fallbackErr.message);
       throw fallbackErr;
     }
   }

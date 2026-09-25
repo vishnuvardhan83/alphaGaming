@@ -11,7 +11,8 @@
     "migrate": "node migrations/runner.js",
     "seed": "node db.js --seed",
     "reset-admin": "node reset-admin.js",
-    "db": "node inspect.js"
+    "db": "node inspect.js",
+    "test:email": "node test-email.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
