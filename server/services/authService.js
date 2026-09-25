@@ -111,8 +111,6 @@ async function registerUser({ phone, name, email, password, confirmPassword }) {
     purpose: "verify_email",
   });
 
-  console.log(`[Auth Registration] Generated OTP for ${normEmail}: ${otpResult.otp}`);
-
   // Non-blocking asynchronous email dispatch so registration does not fail if SMTP has high latency
   setImmediate(async () => {
     try {
@@ -245,17 +243,22 @@ async function resendVerificationOtp({ email }) {
   const normEmail = validateEmail(email);
 
   const user = await db.get("SELECT * FROM users WHERE LOWER(email) = ?", [normEmail]);
-  if (!user) {
+  const activeVerif = await db.get(
+    "SELECT * FROM email_verifications WHERE LOWER(email) = ? AND purpose = 'verify_email'",
+    [normEmail],
+  );
+
+  if (!user && !activeVerif) {
     throw new Error("No account found for this email address.");
   }
-  if (user.email_verified) {
+  if (user && user.email_verified) {
     return { ok: true, alreadyVerified: true, message: "Email is already verified." };
   }
 
   const otpResult = await createOrReplaceOtp({
     db,
     email: normEmail,
-    userId: user.id,
+    userId: user ? user.id : null,
     purpose: "verify_email",
   });
 

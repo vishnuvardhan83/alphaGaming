@@ -43,14 +43,59 @@ const { startPeriodicCleanup } = require("./services/otpService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "alphaq-dev-secret-change-me";
 const PORT = process.env.PORT || 4000;
+const HOST = process.env.HOST || "0.0.0.0";
 const ADMIN_PHONES = (process.env.ADMIN_PHONES || "9573976462")
   .split(",")
   .map(normalizePhone)
   .filter(Boolean);
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:4000",
+];
+
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(",").forEach((origin) => {
+    const trimmed = origin.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
 const app = express();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (such as mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        allowedOrigins.includes("*")
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json({ limit: "2mb" }));
+
+// Health check endpoints for monitoring (Fly.io / Vercel / load balancers)
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
 /* --------------------------------------------------------- serializers --- */
 
@@ -1162,18 +1207,36 @@ app.post(
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 // Serve the built frontend in production (single deployable server).
-const DIST = path.join(__dirname, "..", "app", "dist");
-if (fs.existsSync(DIST)) {
+const candidateDistDirs = [
+  process.env.STATIC_DIR,
+  path.resolve(__dirname, "..", "app", "dist"),
+  path.resolve(__dirname, "public"),
+].filter(Boolean);
+
+const DIST = candidateDistDirs.find((dir) => fs.existsSync(dir));
+if (DIST) {
   app.use(express.static(DIST));
-  app.get(/^(?!\/api|\/uploads).*/, (req, res) => res.sendFile(path.join(DIST, "index.html")));
+
+  // Express 4 compatible SPA fallback (serves index.html for /, /login, /admin, etc.)
+  // Never intercepts /api/*, /health, or /uploads/*
+  app.get("*", (req, res, next) => {
+    if (
+      req.path.startsWith("/api") ||
+      req.path.startsWith("/uploads") ||
+      req.path === "/health"
+    ) {
+      return next();
+    }
+    res.sendFile(path.join(DIST, "index.html"));
+  });
 }
 
 // Run migrations, seed, start periodic OTP cleanup, then listen.
 init()
   .then((kind) => {
     startPeriodicCleanup(db);
-    app.listen(PORT, () =>
-      console.log(`AlphaQ API listening on http://localhost:${PORT} (db: ${kind})`),
+    app.listen(PORT, HOST, () =>
+      console.log(`AlphaQ API listening on http://${HOST}:${PORT} (db: ${kind})`),
     );
   })
   .catch((e) => {

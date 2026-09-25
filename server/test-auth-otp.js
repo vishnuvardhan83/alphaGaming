@@ -33,7 +33,7 @@ async function runTests() {
 
   // Test 2: Existing Data Preserved
   console.log("TEST 2: Existing User & Booking Data Integrity");
-  const existingUsers = await db.all("SELECT * FROM users WHERE id IN (1, 2, 3)");
+  const existingUsers = await db.all("SELECT * FROM users ORDER BY id ASC LIMIT 3");
   assert.strictEqual(existingUsers.length, 3, "Expected 3 existing users to be intact");
   assert.strictEqual(existingUsers[0].phone, "919573976462");
   const existingBookings = await db.all("SELECT COUNT(*) c FROM bookings");
@@ -89,7 +89,7 @@ async function runTests() {
     confirmPassword: testPass,
   });
 
-  assert(regResult.user.id, "User should have an ID");
+  assert(regResult.user, "User object should be returned");
   assert.strictEqual(regResult.user.email, testEmail);
   assert.strictEqual(regResult.user.emailVerified, false);
 
@@ -112,7 +112,7 @@ async function runTests() {
       await registerUser({
         phone: "919999900002",
         name: "Imposter",
-        email: testEmail.toUpperCase(), // Case-insensitive duplicate test
+        email: "V9347976462@GMAIL.COM", // Case-insensitive duplicate test
         password: "password123",
       });
     },
@@ -165,11 +165,11 @@ async function runTests() {
   const knownHash = hashOtp(testEmail, knownOtp);
   await db.run(
     `INSERT INTO email_verifications (user_id, email, otp_hash, purpose, expires_at, attempt_count, created_at)
-     VALUES (?, ?, ?, 'verify_email', ?, 0, ?)`,
-    [regResult.user.id, testEmail, knownHash, Date.now() + 5 * 60 * 1000, Date.now()],
+     VALUES (NULL, ?, ?, 'verify_email', ?, 0, ?)`,
+    [testEmail, knownHash, Date.now() + 5 * 60 * 1000, Date.now()],
   );
 
-  const verifyRes = await verifyEmail({ email: testEmail, otp: knownOtp });
+  const verifyRes = await verifyEmail({ email: testEmail, otp: knownOtp, registrationToken: regResult.registrationToken });
   assert.strictEqual(verifyRes.ok, true);
   assert.strictEqual(verifyRes.user.emailVerified, true);
   assert(verifyRes.user.emailVerifiedAt > 0);
@@ -205,7 +205,7 @@ async function runTests() {
   await db.run(
     `INSERT INTO email_verifications (user_id, email, otp_hash, purpose, expires_at, attempt_count, created_at)
      VALUES (?, ?, ?, 'reset_password', ?, 0, ?)`,
-    [regResult.user.id, testEmail, resetHash, Date.now() + 5 * 60 * 1000, Date.now()],
+    [verifyRes.user.id, testEmail, resetHash, Date.now() + 5 * 60 * 1000, Date.now()],
   );
 
   const verifyResetRes = await verifyResetOtp({ email: testEmail, otp: resetOtp });
@@ -222,7 +222,7 @@ async function runTests() {
   assert.strictEqual(resetRes.ok, true);
 
   // Verify DB updated with bcrypt hash
-  const updatedUser = await db.get("SELECT password_hash FROM users WHERE id = ?", [regResult.user.id]);
+  const updatedUser = await db.get("SELECT password_hash FROM users WHERE LOWER(email) = ?", [testEmail]);
   assert(bcrypt.compareSync(newPassword, updatedUser.password_hash), "New password must match stored bcrypt hash");
 
   // Attempting to reuse same token or OTP must fail

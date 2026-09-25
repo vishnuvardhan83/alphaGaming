@@ -23,14 +23,16 @@ if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const explicit = (process.env.DB_CLIENT || "").toLowerCase();
 const mysqlUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
-const mysqlHost = process.env.MYSQL_HOST || process.env.MYSQLHOST;
-const mysqlPort = Number(process.env.MYSQL_PORT || process.env.MYSQLPORT || 3306);
-const mysqlUser = process.env.MYSQL_USER || process.env.MYSQLUSER || "root";
+const mysqlHost = process.env.DB_HOST || process.env.MYSQL_HOST || process.env.MYSQLHOST;
+const mysqlPort = Number(process.env.DB_PORT || process.env.MYSQL_PORT || process.env.MYSQLPORT || 3306);
+const mysqlUser = process.env.DB_USER || process.env.MYSQL_USER || process.env.MYSQLUSER || "root";
 const mysqlPassword =
-  process.env.MYSQL_PASSWORD !== undefined
-    ? process.env.MYSQL_PASSWORD
-    : (process.env.MYSQLPASSWORD || "");
-const mysqlDatabase = process.env.MYSQL_DATABASE || process.env.MYSQLDATABASE || "alphaq";
+  process.env.DB_PASSWORD !== undefined
+    ? process.env.DB_PASSWORD
+    : (process.env.MYSQL_PASSWORD !== undefined
+      ? process.env.MYSQL_PASSWORD
+      : (process.env.MYSQLPASSWORD || ""));
+const mysqlDatabase = process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQLDATABASE || "alphaq";
 
 const USE_MYSQL =
   explicit === "mysql" ||
