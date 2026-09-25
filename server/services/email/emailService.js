@@ -1,109 +1,111 @@
 // AlphaQ Gaming — Reusable Email Service
-// Sends emails using Nodemailer with SMTP configuration from environment variables.
-// In dev or when SMTP is not configured, provides a mock fallback that logs to console.
+// Sends OTP emails through EmailJS HTTPS API.
+// Login OTP and Reset Password OTP use the same EmailJS template.
 
-const nodemailer = require("nodemailer");
 const verifyEmailTemplate = require("./templates/verifyEmail");
 const forgotPasswordTemplate = require("./templates/forgotPassword");
 const bookingNotificationTemplate = require("./templates/bookingNotification");
 const welcomeUserTemplate = require("./templates/welcomeUser");
 
-let transporter = null;
-let isConfigured = false;
+const EMAILJS_API_URL = "https://api.emailjs.com/api/v1.0/email/send";
 
-function getTransporter() {
-  if (transporter) return transporter;
+function getEmailJsConfig() {
+  const serviceId = (process.env.EMAILJS_SERVICE_ID || "").trim();
+  const templateId = (process.env.EMAILJS_TEMPLATE_ID || "").trim();
+  const publicKey = (process.env.EMAILJS_PUBLIC_KEY || "").trim();
+  const privateKey = (process.env.EMAILJS_PRIVATE_KEY || "").trim();
 
-  const host = (process.env.EMAIL_HOST || "").trim();
-  const user = (process.env.EMAIL_USER || "").trim();
-  const rawPass = (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || "").trim();
-  const pass = rawPass.replace(/\s+/g, "");
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure =
-    String(process.env.EMAIL_SECURE).toLowerCase() === "true" || port === 465;
-
-  if (user && pass && (host || process.env.EMAIL_SERVICE)) {
-    isConfigured = true;
-    const isGmail = host === "smtp.gmail.com" || host.includes("gmail") || process.env.EMAIL_SERVICE === "gmail" || user.endsWith("@gmail.com");
-
-    if (isGmail) {
-      transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user,
-          pass,
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-      });
-    } else {
-      transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: {
-          user,
-          pass,
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
-      });
-    }
-  } else {
-    isConfigured = false;
+  if (!serviceId || !templateId || !publicKey || !privateKey) {
+    return null;
   }
 
-  return transporter;
-}
-
-function getFromAddress() {
-  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
-  if (process.env.EMAIL_USER) return `"AlphaQ Gaming" <${process.env.EMAIL_USER}>`;
-  if (process.env.ADMIN_EMAIL) return `"AlphaQ Gaming" <${process.env.ADMIN_EMAIL}>`;
-  return '"AlphaQ Gaming" <noreply@alphaqgaming.com>';
+  return {
+    serviceId,
+    templateId,
+    publicKey,
+    privateKey,
+  };
 }
 
 function getAdminEmail() {
-  return (
-    process.env.ADMIN_EMAIL ||
-    process.env.EMAIL_USER ||
-    ""
-  );
+  return process.env.ADMIN_EMAIL || "";
 }
 
 /**
- * Sends a generic email through configured SMTP or logs in dev.
+ * Sends an email through EmailJS.
  */
-async function sendEmail({ to, subject, text, html }) {
-  const mailer = getTransporter();
-  const from = getFromAddress();
+async function sendEmail({
+  to,
+  subject,
+  text,
+  html,
+  name = "",
+  title = "",
+  message = "",
+  passcode = "",
+  time = "",
+}) {
+  const config = getEmailJsConfig();
 
-  if (!mailer || !isConfigured) {
+  if (!config) {
     console.log("\n=======================================================");
-    console.log("[EMAIL SERVICE - DEV/MOCK MODE (SMTP not configured)]");
+    console.log("[EMAIL SERVICE - DEV/MOCK MODE (EmailJS not configured)]");
     console.log(`To:      ${to}`);
-    console.log(`From:    ${from}`);
     console.log(`Subject: ${subject}`);
     console.log("-------------------------------------------------------");
     console.log(text || html);
     console.log("=======================================================\n");
-    return { messageId: `mock-${Date.now()}`, mocked: true };
+
+    return {
+      messageId: `mock-${Date.now()}`,
+      mocked: true,
+    };
   }
 
   try {
-    const info = await mailer.sendMail({
-      from,
-      to,
-      subject,
-      text,
-      html,
+    const response = await fetch(EMAILJS_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        service_id: config.serviceId,
+        template_id: config.templateId,
+        user_id: config.publicKey,
+        accessToken: config.privateKey,
+
+
+        template_params: {
+          to_email: to,
+          name,
+          title,
+          message,
+          passcode,
+          time,
+        },
+      }),
     });
-    console.log(`[Email Service] Sent to ${to} (ID: ${info.messageId})`);
-    return info;
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `EmailJS request failed (${response.status}): ${responseText}`
+      );
+    }
+
+    console.log(`[EmailJS] Sent to ${to}`);
+
+    return {
+      messageId: `emailjs-${Date.now()}`,
+      mocked: false,
+    };
   } catch (err) {
-    console.error(`[Email Service Error] Failed sending to ${to}:`, err.message);
+    console.error(
+      `[EmailJS Error] Failed sending to ${to}:`,
+      err.message
+    );
+
     throw err;
   }
 }
@@ -111,53 +113,119 @@ async function sendEmail({ to, subject, text, html }) {
 /**
  * User registration email verification with OTP.
  */
-async function sendVerificationEmail({ email, name, otp, expiryMinutes = 5 }) {
-  const tpl = verifyEmailTemplate({ name, otp, expiryMinutes });
+async function sendVerificationEmail({
+  email,
+  name,
+  otp,
+  expiryMinutes = 5,
+}) {
+  const tpl = verifyEmailTemplate({
+    name,
+    otp,
+    expiryMinutes,
+  });
+
   return sendEmail({
     to: email,
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
+
+    name,
+    title: "Verify your account",
+    message:
+      "Use the verification code below to securely continue with your AlphaQ Gaming account.",
+    passcode: otp,
+    time: `${expiryMinutes} minutes`,
   });
 }
 
 /**
  * Forgot password verification with OTP.
  */
-async function sendForgotPasswordEmail({ email, name, otp, expiryMinutes = 5 }) {
-  const tpl = forgotPasswordTemplate({ name, otp, expiryMinutes });
+async function sendForgotPasswordEmail({
+  email,
+  name,
+  otp,
+  expiryMinutes = 5,
+}) {
+  const tpl = forgotPasswordTemplate({
+    name,
+    otp,
+    expiryMinutes,
+  });
+
   return sendEmail({
     to: email,
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
+
+    name,
+    title: "Reset your password",
+    message:
+      "Use the verification code below to reset your AlphaQ Gaming password.",
+    passcode: otp,
+    time: `${expiryMinutes} minutes`,
   });
 }
 
 /**
  * Admin notification when a booking is created.
+ *
+ * This remains available but is not using the OTP template.
+ * We will handle the booking template separately.
  */
 async function sendBookingAdminNotification({ booking, user }) {
   const adminEmail = getAdminEmail();
-  const tpl = bookingNotificationTemplate({ booking, user });
+
+  const tpl = bookingNotificationTemplate({
+    booking,
+    user,
+  });
+
   return sendEmail({
     to: adminEmail,
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
+
+    name: "Admin",
+    title: tpl.subject,
+    message: tpl.text,
   });
 }
 
 /**
- * Admin creates a new user: sends welcome email with verification OTP.
+ * Admin creates a new user:
+ * sends welcome email with verification OTP.
  */
-async function sendWelcomeUserEmail({ email, name, otp, role = "customer", expiryMinutes = 5 }) {
-  const tpl = welcomeUserTemplate({ name, otp, role, expiryMinutes });
+async function sendWelcomeUserEmail({
+  email,
+  name,
+  otp,
+  role = "customer",
+  expiryMinutes = 5,
+}) {
+  const tpl = welcomeUserTemplate({
+    name,
+    otp,
+    role,
+    expiryMinutes,
+  });
+
   return sendEmail({
     to: email,
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
+
+    name,
+    title: "Verify your account",
+    message:
+      "Use the verification code below to securely activate your AlphaQ Gaming account.",
+    passcode: otp,
+    time: `${expiryMinutes} minutes`,
   });
 }
 

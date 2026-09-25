@@ -1,3 +1,5 @@
+require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
+
 // AlphaQ Gaming — Express API (normal login, bookings, UPI approval, food,
 // tournaments, reviews, gallery, rewards, admin settings).
 // Backed by MySQL (production) or SQLite (fallback) — see db.js.
