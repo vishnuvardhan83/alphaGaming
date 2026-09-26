@@ -287,6 +287,33 @@ CREATE TABLE IF NOT EXISTS group_quotes (
   status TEXT NOT NULL DEFAULT 'pending',
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reward_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  points_cost INTEGER NOT NULL DEFAULT 50,
+  reward_type TEXT NOT NULL DEFAULT 'discount_voucher',
+  discount_amount INTEGER NOT NULL DEFAULT 0,
+  badge TEXT NOT NULL DEFAULT '',
+  icon TEXT NOT NULL DEFAULT 'gift',
+  active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS offers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  code TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  discount_type TEXT NOT NULL DEFAULT 'percentage',
+  discount_value INTEGER NOT NULL DEFAULT 20,
+  min_hours INTEGER NOT NULL DEFAULT 1,
+  applicable_platform TEXT NOT NULL DEFAULT 'all',
+  valid_until TEXT NOT NULL DEFAULT 'Ongoing',
+  badge TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
 `;
 
 // MySQL runs one statement per exec() call, so keep them as an array.
@@ -411,6 +438,33 @@ const MYSQL_SCHEMA = [
     status VARCHAR(30) NOT NULL DEFAULT 'pending',
     created_at BIGINT NOT NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS reward_options (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(500) NOT NULL DEFAULT '',
+    points_cost INT NOT NULL DEFAULT 50,
+    reward_type VARCHAR(50) NOT NULL DEFAULT 'discount_voucher',
+    discount_amount INT NOT NULL DEFAULT 0,
+    badge VARCHAR(50) NOT NULL DEFAULT '',
+    icon VARCHAR(50) NOT NULL DEFAULT 'gift',
+    active TINYINT NOT NULL DEFAULT 1,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+  `CREATE TABLE IF NOT EXISTS offers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    description VARCHAR(500) NOT NULL DEFAULT '',
+    discount_type VARCHAR(50) NOT NULL DEFAULT 'percentage',
+    discount_value INT NOT NULL DEFAULT 20,
+    min_hours INT NOT NULL DEFAULT 1,
+    applicable_platform VARCHAR(50) NOT NULL DEFAULT 'all',
+    valid_until VARCHAR(50) NOT NULL DEFAULT 'Ongoing',
+    badge VARCHAR(50) NOT NULL DEFAULT '',
+    active TINYINT NOT NULL DEFAULT 1,
+    created_at BIGINT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 ];
 
 async function ensureSchema() {
@@ -499,13 +553,17 @@ async function seed() {
     appBg: "",
     pcCount: "10",
     ps5Count: "3",
+    racingCount: "2",
     pcPrice30m: "50",
     pcPrice1h: "100",
     pcPriceDay: "500",
     ps5Price30m: "60",
     ps5Price1h: "120",
     ps5PriceDay: "600",
-    statSetups: "13",
+    racingPrice30m: "80",
+    racingPrice1h: "150",
+    racingPriceDay: "750",
+    statSetups: "15",
     statRefresh: "240Hz",
     statPing: "<20ms",
     statTitles: "7+",

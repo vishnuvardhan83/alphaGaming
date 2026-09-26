@@ -271,9 +271,10 @@ app.get("/api/auth/me", auth(), (req, res) => {
 
 const PUBLIC_SETTING_KEYS = [
   "brandName", "whatsapp", "phone", "email", "instagram", "city", "hours", "upiId", "upiName", "upiPhone",
-  "arenaImage", "appBg", "pcCount", "ps5Count",
+  "arenaImage", "appBg", "pcCount", "ps5Count", "racingCount",
   "pcPrice30m", "pcPrice1h", "pcPriceDay",
   "ps5Price30m", "ps5Price1h", "ps5PriceDay",
+  "racingPrice30m", "racingPrice1h", "racingPriceDay",
   "statSetups", "statRefresh", "statPing", "statTitles", "address",
 ];
 
@@ -635,8 +636,42 @@ const updateQuoteStatusHandler = wrap(async (req, res) => {
 app.patch("/api/admin/group-quotes/:id", ...adminOnly, updateQuoteStatusHandler);
 app.put("/api/admin/group-quotes/:id", ...adminOnly, updateQuoteStatusHandler);
 
-/* ------------------------------------------------------------- rewards --- */
+/* ------------------------------------------------------------- rewards & offers --- */
 
+function formatRewardOption(r) {
+  return {
+    id: r.id,
+    title: r.title,
+    description: r.description || "",
+    pointsCost: Number(r.points_cost || 0),
+    rewardType: r.reward_type || "discount_voucher",
+    discountAmount: Number(r.discount_amount || 0),
+    badge: r.badge || "",
+    icon: r.icon || "gift",
+    active: Boolean(r.active),
+    sortOrder: Number(r.sort_order || 0),
+    createdAt: Number(r.created_at || 0),
+  };
+}
+
+function formatOffer(o) {
+  return {
+    id: o.id,
+    title: o.title,
+    code: (o.code || "").toUpperCase(),
+    description: o.description || "",
+    discountType: o.discount_type || "percentage",
+    discountValue: Number(o.discount_value || 0),
+    minHours: Number(o.min_hours || 1),
+    applicablePlatform: o.applicable_platform || "all",
+    validUntil: o.valid_until || "Ongoing",
+    badge: o.badge || "",
+    active: Boolean(o.active),
+    createdAt: Number(o.created_at || 0),
+  };
+}
+
+// User: View personal rewards ledger & points
 app.get(
   "/api/rewards/me",
   auth(),
@@ -655,27 +690,55 @@ app.get(
   }),
 );
 
+// Public / User: View active reward redeem options
+app.get(
+  "/api/rewards/options",
+  wrap(async (req, res) => {
+    const rows = await db.all(
+      "SELECT * FROM reward_options WHERE active = 1 ORDER BY sort_order ASC, points_cost ASC",
+    );
+    res.json(rows.map(formatRewardOption));
+  }),
+);
+
 // Redeem reward points for discounts, coupons, and vouchers
 app.post(
   "/api/rewards/redeem",
   auth(),
   wrap(async (req, res) => {
-    const points = Math.floor(Number(req.body.points));
-    const rewardType = String(req.body.rewardType || "discount_voucher");
+    let points = 0;
+    let rewardType = "discount_voucher";
+    let itemTitle = "";
+    let discountAmount = 0;
+
+    if (req.body.optionId) {
+      const optId = Number(req.body.optionId);
+      const option = await db.get("SELECT * FROM reward_options WHERE id = ?", [optId]);
+      if (!option) throw new Error("Reward option not found.");
+      if (!option.active) throw new Error("This reward option is currently not active.");
+      points = Number(option.points_cost);
+      rewardType = option.reward_type;
+      itemTitle = option.title;
+      discountAmount = Number(option.discount_amount);
+    } else {
+      points = Math.floor(Number(req.body.points));
+      rewardType = String(req.body.rewardType || "discount_voucher");
+      if (rewardType === "gaming_hour") itemTitle = "1 Free Gaming Hour Voucher";
+      else if (rewardType === "vip_pass") itemTitle = "VIP Tournament Pass Voucher";
+      else if (rewardType === "snack_combo") itemTitle = "Gamer Snack & Drink Combo Voucher";
+      else itemTitle = `₹${points} Café / Booking Discount`;
+      discountAmount = points;
+    }
+
     if (!points || isNaN(points) || points <= 0) {
       throw new Error("Points to redeem must be greater than 0.");
     }
     const currentPoints = req.user.reward_points || 0;
     if (currentPoints < points) {
-      throw new Error(`Insufficient reward points. You currently have ${currentPoints} points.`);
+      throw new Error(`Insufficient reward points. You currently have ${currentPoints} points, but need ${points} points.`);
     }
 
     const voucherCode = `ALPHAQ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-    let itemTitle = `₹${points} Café / Booking Discount`;
-    if (rewardType === "gaming_hour") itemTitle = "1 Free Gaming Hour Voucher";
-    else if (rewardType === "vip_pass") itemTitle = "VIP Tournament Pass Voucher";
-    else if (rewardType === "snack_combo") itemTitle = "Gamer Snack & Drink Combo Voucher";
-
     const reason = `Redeemed ${points} pts for ${itemTitle} [Code: ${voucherCode}]`;
 
     await addReward(req.user.id, -points, reason);
@@ -686,10 +749,72 @@ app.post(
       voucherCode,
       rewardType,
       itemTitle,
+      discountAmount,
       pointsRedeemed: points,
       remainingPoints: updatedUser.reward_points,
       reason,
       message: `Successfully redeemed ${points} points! Your voucher code is ${voucherCode}`,
+    });
+  }),
+);
+
+// Public / User: View active promotional offers
+app.get(
+  "/api/offers",
+  wrap(async (req, res) => {
+    const rows = await db.all(
+      "SELECT * FROM offers WHERE active = 1 ORDER BY id ASC",
+    );
+    res.json(rows.map(formatOffer));
+  }),
+);
+
+// Public / User: Validate promo / coupon code
+app.post(
+  "/api/offers/validate",
+  wrap(async (req, res) => {
+    const rawCode = String(req.body.code || "").trim().toUpperCase();
+    if (!rawCode) throw new Error("Coupon code is required.");
+    const offer = await db.get("SELECT * FROM offers WHERE UPPER(code) = ? AND active = 1", [rawCode]);
+    if (!offer) {
+      return res.status(400).json({ valid: false, message: "Invalid or expired promo code." });
+    }
+
+    const platform = String(req.body.platform || "all").toLowerCase();
+    if (offer.applicable_platform !== "all" && offer.applicable_platform !== platform) {
+      return res.status(400).json({
+        valid: false,
+        message: `This offer is only valid for ${offer.applicable_platform.toUpperCase()} bookings.`,
+      });
+    }
+
+    const hours = Number(req.body.hours || 1);
+    if (hours < offer.min_hours) {
+      return res.status(400).json({
+        valid: false,
+        message: `This offer requires a minimum booking of ${offer.min_hours} hour(s).`,
+      });
+    }
+
+    const amount = Number(req.body.amount || 0);
+    let discount = 0;
+    if (offer.discount_type === "percentage") {
+      discount = Math.round((amount * offer.discount_value) / 100);
+    } else {
+      discount = Math.min(amount, offer.discount_value);
+    }
+    const finalAmount = Math.max(0, amount - discount);
+
+    res.json({
+      valid: true,
+      code: offer.code,
+      title: offer.title,
+      discountType: offer.discount_type,
+      discountValue: offer.discount_value,
+      discountAmount: discount,
+      finalAmount,
+      message: `Promo code ${offer.code} applied! Saved ₹${discount}.`,
+      offer: formatOffer(offer),
     });
   }),
 );
@@ -1243,6 +1368,163 @@ app.post(
     if (!u) throw new Error("User not found.");
     await addReward(userId, delta, String(req.body.reason || "Manual adjustment"));
     res.json(publicUser(await db.get("SELECT * FROM users WHERE id = ?", [userId])));
+  }),
+);
+
+/* ------------------------------------------- admin: rewards options & offers --- */
+
+// List all reward options for admin (including inactive)
+app.get(
+  "/api/admin/rewards/options",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const rows = await db.all("SELECT * FROM reward_options ORDER BY sort_order ASC, id ASC");
+    res.json(rows.map(formatRewardOption));
+  }),
+);
+
+// Create a new reward option
+app.post(
+  "/api/admin/rewards/options",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const title = String(req.body.title || "").trim();
+    if (!title) throw new Error("Title is required for reward option.");
+    const pointsCost = Math.max(1, Math.floor(Number(req.body.pointsCost || 50)));
+    const description = String(req.body.description || "").trim();
+    const rewardType = String(req.body.rewardType || "discount_voucher");
+    const discountAmount = Math.max(0, Math.floor(Number(req.body.discountAmount || 0)));
+    const badge = String(req.body.badge || "").trim();
+    const icon = String(req.body.icon || "gift").trim();
+    const active = req.body.active === undefined ? 1 : req.body.active ? 1 : 0;
+    const sortOrder = Number(req.body.sortOrder || 0);
+
+    const result = await db.run(
+      `INSERT INTO reward_options (title, description, points_cost, reward_type, discount_amount, badge, icon, active, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, pointsCost, rewardType, discountAmount, badge, icon, active, sortOrder, Date.now()],
+    );
+
+    const created = await db.get("SELECT * FROM reward_options WHERE id = ?", [result.lastInsertRowid]);
+    res.json(formatRewardOption(created));
+  }),
+);
+
+// Update a reward option
+app.put(
+  "/api/admin/rewards/options/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const opt = await db.get("SELECT * FROM reward_options WHERE id = ?", [req.params.id]);
+    if (!opt) throw new Error("Reward option not found.");
+
+    const title = req.body.title !== undefined ? String(req.body.title).trim() : opt.title;
+    const description = req.body.description !== undefined ? String(req.body.description).trim() : opt.description;
+    const pointsCost = req.body.pointsCost !== undefined ? Math.max(1, Math.floor(Number(req.body.pointsCost))) : opt.points_cost;
+    const rewardType = req.body.rewardType !== undefined ? String(req.body.rewardType) : opt.reward_type;
+    const discountAmount = req.body.discountAmount !== undefined ? Math.max(0, Math.floor(Number(req.body.discountAmount))) : opt.discount_amount;
+    const badge = req.body.badge !== undefined ? String(req.body.badge).trim() : opt.badge;
+    const icon = req.body.icon !== undefined ? String(req.body.icon).trim() : opt.icon;
+    const active = req.body.active !== undefined ? (req.body.active ? 1 : 0) : opt.active;
+    const sortOrder = req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : opt.sort_order;
+
+    await db.run(
+      `UPDATE reward_options SET title = ?, description = ?, points_cost = ?, reward_type = ?, discount_amount = ?, badge = ?, icon = ?, active = ?, sort_order = ?
+       WHERE id = ?`,
+      [title, description, pointsCost, rewardType, discountAmount, badge, icon, active, sortOrder, opt.id],
+    );
+
+    const updated = await db.get("SELECT * FROM reward_options WHERE id = ?", [opt.id]);
+    res.json(formatRewardOption(updated));
+  }),
+);
+
+// Delete a reward option
+app.delete(
+  "/api/admin/rewards/options/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    await db.run("DELETE FROM reward_options WHERE id = ?", [req.params.id]);
+    res.json({ ok: true });
+  }),
+);
+
+// List all promotional offers for admin (including inactive)
+app.get(
+  "/api/admin/offers",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const rows = await db.all("SELECT * FROM offers ORDER BY id DESC");
+    res.json(rows.map(formatOffer));
+  }),
+);
+
+// Create a new offer
+app.post(
+  "/api/admin/offers",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const title = String(req.body.title || "").trim();
+    if (!title) throw new Error("Offer title is required.");
+    const code = String(req.body.code || "").trim().toUpperCase();
+    if (!code) throw new Error("Offer coupon code is required.");
+    const description = String(req.body.description || "").trim();
+    const discountType = String(req.body.discountType || "percentage");
+    const discountValue = Math.max(1, Math.floor(Number(req.body.discountValue || 10)));
+    const minHours = Math.max(1, Math.floor(Number(req.body.minHours || 1)));
+    const applicablePlatform = String(req.body.applicablePlatform || "all");
+    const validUntil = String(req.body.validUntil || "Ongoing").trim();
+    const badge = String(req.body.badge || "").trim();
+    const active = req.body.active === undefined ? 1 : req.body.active ? 1 : 0;
+
+    const result = await db.run(
+      `INSERT INTO offers (title, code, description, discount_type, discount_value, min_hours, applicable_platform, valid_until, badge, active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, code, description, discountType, discountValue, minHours, applicablePlatform, validUntil, badge, active, Date.now()],
+    );
+
+    const created = await db.get("SELECT * FROM offers WHERE id = ?", [result.lastInsertRowid]);
+    res.json(formatOffer(created));
+  }),
+);
+
+// Update an offer
+app.put(
+  "/api/admin/offers/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const off = await db.get("SELECT * FROM offers WHERE id = ?", [req.params.id]);
+    if (!off) throw new Error("Offer not found.");
+
+    const title = req.body.title !== undefined ? String(req.body.title).trim() : off.title;
+    const code = req.body.code !== undefined ? String(req.body.code).trim().toUpperCase() : off.code;
+    const description = req.body.description !== undefined ? String(req.body.description).trim() : off.description;
+    const discountType = req.body.discountType !== undefined ? String(req.body.discountType) : off.discount_type;
+    const discountValue = req.body.discountValue !== undefined ? Math.max(1, Math.floor(Number(req.body.discountValue))) : off.discount_value;
+    const minHours = req.body.minHours !== undefined ? Math.max(1, Math.floor(Number(req.body.minHours))) : off.min_hours;
+    const applicablePlatform = req.body.applicablePlatform !== undefined ? String(req.body.applicablePlatform) : off.applicable_platform;
+    const validUntil = req.body.validUntil !== undefined ? String(req.body.validUntil).trim() : off.valid_until;
+    const badge = req.body.badge !== undefined ? String(req.body.badge).trim() : off.badge;
+    const active = req.body.active !== undefined ? (req.body.active ? 1 : 0) : off.active;
+
+    await db.run(
+      `UPDATE offers SET title = ?, code = ?, description = ?, discount_type = ?, discount_value = ?, min_hours = ?, applicable_platform = ?, valid_until = ?, badge = ?, active = ?
+       WHERE id = ?`,
+      [title, code, description, discountType, discountValue, minHours, applicablePlatform, validUntil, badge, active, off.id],
+    );
+
+    const updated = await db.get("SELECT * FROM offers WHERE id = ?", [off.id]);
+    res.json(formatOffer(updated));
+  }),
+);
+
+// Delete an offer
+app.delete(
+  "/api/admin/offers/:id",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    await db.run("DELETE FROM offers WHERE id = ?", [req.params.id]);
+    res.json({ ok: true });
   }),
 );
 

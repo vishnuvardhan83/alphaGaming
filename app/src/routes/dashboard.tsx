@@ -29,6 +29,11 @@ import {
   Gauge,
   Sparkles,
   ShieldCheck,
+  Coffee,
+  Crown,
+  Tag,
+  Zap,
+  Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
@@ -49,12 +54,17 @@ import {
 import {
   getMyRewards,
   redeemRewards,
+  redeemRewardOption,
+  listRewardOptions,
+  listOffers,
   getSettings,
   listMyRegistrations,
   listTournaments,
   listGames,
   listLeaderboard,
   type RewardsInfo,
+  type RewardOption,
+  type Offer,
   type Settings,
   type TournamentRegistration,
   type Tournament,
@@ -99,12 +109,36 @@ function fmtDate(ms: number): string {
   }
 }
 
+function getOptionIcon(iconName: string) {
+  switch (iconName) {
+    case "coffee":
+      return Coffee;
+    case "clock":
+      return Clock;
+    case "crown":
+      return Crown;
+    case "tag":
+      return Tag;
+    case "sparkles":
+      return Sparkles;
+    case "zap":
+      return Zap;
+    case "flame":
+      return Flame;
+    default:
+      return Gift;
+  }
+}
+
 function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
   const { user } = useAuth();
   const [rewards, setRewards] = useState<RewardsInfo | null>(null);
+  const [rewardOptions, setRewardOptions] = useState<RewardOption[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [open, setOpen] = useState(true);
   const [redeemOpen, setRedeemOpen] = useState(false);
-  const [redeeming, setRedeeming] = useState(false);
+  const [redeeming, setRedeeming] = useState<number | string | false>(false);
   const [customPts, setCustomPts] = useState("");
   const [voucherResult, setVoucherResult] = useState<any | null>(null);
 
@@ -114,14 +148,56 @@ function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
       .catch(() => {});
   };
 
+  const fetchCatalog = () => {
+    setLoadingCatalog(true);
+    Promise.all([
+      listRewardOptions().catch(() => []),
+      listOffers().catch(() => []),
+    ]).then(([opts, offs]) => {
+      setRewardOptions(opts);
+      setOffers(offs);
+      setLoadingCatalog(false);
+    });
+  };
+
   useEffect(() => {
     fetchRewards();
+    fetchCatalog();
   }, []);
 
   const points = rewards?.points ?? user?.rewardPoints ?? fallbackPoints;
   const ledger = rewards?.ledger ?? [];
 
-  async function handleRedeem(ptsToRedeem: number, type: string) {
+  // Gamer membership tier
+  const tier =
+    points >= 500
+      ? { name: "Esports VIP", color: "text-purple-400 border-purple-500/30 bg-purple-500/10" }
+      : points >= 250
+      ? { name: "Gold Tier", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" }
+      : points >= 100
+      ? { name: "Silver Tier", color: "text-slate-300 border-slate-400/30 bg-slate-400/10" }
+      : { name: "Bronze Member", color: "text-orange-400 border-orange-500/30 bg-orange-500/10" };
+
+  async function handleRedeemOption(opt: RewardOption) {
+    if (points < opt.pointsCost) {
+      toast.error(`Need ${opt.pointsCost - points} more points to redeem ${opt.title}.`);
+      return;
+    }
+
+    try {
+      setRedeeming(opt.id);
+      const res = await redeemRewardOption(opt.id);
+      setVoucherResult(res);
+      toast.success(res.message);
+      fetchRewards();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to redeem reward.");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
+  async function handleCustomRedeem(ptsToRedeem: number, type: string) {
     if (ptsToRedeem <= 0 || isNaN(ptsToRedeem)) {
       toast.error("Enter a valid number of points.");
       return;
@@ -132,7 +208,7 @@ function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
     }
 
     try {
-      setRedeeming(true);
+      setRedeeming("custom");
       const res = await redeemRewards(ptsToRedeem, type);
       setVoucherResult(res);
       toast.success(res.message);
@@ -145,171 +221,348 @@ function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 card-glow space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Gift className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="font-display text-2xl font-bold text-primary">
-              {points.toLocaleString()} <span className="text-sm font-semibold">points</span>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Earn on every confirmed booking; redeem for instant vouchers & free hours.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setVoucherResult(null);
-              setRedeemOpen(true);
-            }}
-            disabled={points <= 0}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-          >
-            <Gift className="h-3.5 w-3.5" />
-            Redeem Points
-          </button>
-          {ledger.length > 0 && (
-            <button
-              onClick={() => setOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-primary"
-            >
-              {open ? "Hide" : "History"}
-              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Redeem Modal */}
-      {redeemOpen && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
-              <Gift className="h-4 w-4 text-primary" /> Select Reward to Redeem
-            </h4>
-            <button
-              onClick={() => setRedeemOpen(false)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Close
-            </button>
-          </div>
-
-          {voucherResult ? (
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-center space-y-2">
-              <p className="text-xs font-semibold text-emerald-400">🎉 Voucher Generated Successfully!</p>
-              <div className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-background/80 px-3 py-1 text-sm font-mono font-bold text-emerald-400">
-                <span>{voucherResult.voucherCode}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(voucherResult.voucherCode);
-                    toast.success("Voucher code copied to clipboard!");
-                  }}
-                  className="hover:text-white"
-                  title="Copy code"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
+    <div className="space-y-6">
+      {/* Primary Rewards Balance Card */}
+      <div className="rounded-xl border border-border bg-card p-5 card-glow space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <Gift className="h-6 w-6" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-display text-2xl font-extrabold text-primary">
+                  {points.toLocaleString()} <span className="text-sm font-semibold">points</span>
+                </p>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${tier.color}`}>
+                  {tier.name}
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground">{voucherResult.reason}</p>
-              <p className="text-[11px] text-muted-foreground">
-                Remaining balance: {voucherResult.remainingPoints} points
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Earn 10% points on every confirmed booking; redeem for café vouchers, free gaming hours &amp; perks.
               </p>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
-                <div>
-                  <p className="font-semibold text-xs text-foreground">₹50 Café Voucher</p>
-                  <p className="text-[11px] text-muted-foreground">50 Reward Points</p>
-                </div>
-                <button
-                  disabled={redeeming || points < 50}
-                  onClick={() => handleRedeem(50, "cafe_discount")}
-                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
-                >
-                  {redeeming ? "Redeeming..." : "Redeem 50 pts"}
-                </button>
-              </div>
+          </div>
 
-              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
-                <div>
-                  <p className="font-semibold text-xs text-foreground">1 Free Gaming Hour</p>
-                  <p className="text-[11px] text-muted-foreground">100 Reward Points</p>
-                </div>
-                <button
-                  disabled={redeeming || points < 100}
-                  onClick={() => handleRedeem(100, "gaming_hour")}
-                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
-                >
-                  {redeeming ? "Redeeming..." : "Redeem 100 pts"}
-                </button>
-              </div>
-
-              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
-                <div>
-                  <p className="font-semibold text-xs text-foreground">VIP Pass Voucher</p>
-                  <p className="text-[11px] text-muted-foreground">200 Reward Points</p>
-                </div>
-                <button
-                  disabled={redeeming || points < 200}
-                  onClick={() => handleRedeem(200, "vip_pass")}
-                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
-                >
-                  {redeeming ? "Redeeming..." : "Redeem 200 pts"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {!voucherResult && (
-            <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs">
-              <span className="text-muted-foreground">Or custom points:</span>
-              <input
-                type="number"
-                min="10"
-                max={points}
-                placeholder="Points"
-                value={customPts}
-                onChange={(e) => setCustomPts(e.target.value)}
-                className="w-24 rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
-              />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setVoucherResult(null);
+                setRedeemOpen(!redeemOpen);
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-md transition hover:opacity-90"
+            >
+              <Gift className="h-3.5 w-3.5" />
+              {redeemOpen ? "Close Redeem Menu" : "Select Reward to Redeem"}
+            </button>
+            {ledger.length > 0 && (
               <button
-                disabled={redeeming || !customPts || Number(customPts) > points || Number(customPts) < 10}
-                onClick={() => handleRedeem(Number(customPts), "custom_discount")}
-                className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                onClick={() => setOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-primary"
               >
-                Redeem
+                {open ? "Hide History" : "Points History"}
+                {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* SELECT REWARD TO REDEEM SECTION */}
+        {redeemOpen && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4 mt-2">
+            <div className="flex items-center justify-between border-b border-primary/20 pb-3">
+              <div>
+                <h4 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                  <Gift className="h-4 w-4 text-primary" /> Select Reward to Redeem
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Choose from active reward options added by arena staff
+                </p>
+              </div>
+              <button
+                onClick={() => setRedeemOpen(false)}
+                className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Done
               </button>
             </div>
-          )}
-        </div>
-      )}
 
-      {open && ledger.length > 0 && (
-        <ul className="mt-4 space-y-2 overflow-y-auto border-t border-border pt-4 max-h-60">
-          {ledger.map((e) => (
-            <li key={e.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0">
-                <span className="block truncate text-foreground">{e.reason}</span>
-                <span className="text-xs text-muted-foreground">{fmtDate(e.createdAt)}</span>
+            {voucherResult ? (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-center space-y-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                  <Check className="h-5 w-5" />
+                </div>
+                <h5 className="font-display text-base font-bold text-emerald-400">
+                  🎉 Reward Redeemed Successfully!
+                </h5>
+                <p className="text-xs text-muted-foreground">
+                  Present this coupon code at the arena front desk or apply during checkout
+                </p>
+
+                <div className="inline-flex items-center gap-3 rounded-lg border border-emerald-500/50 bg-background/90 px-4 py-2 text-base font-mono font-bold text-emerald-400 shadow-sm">
+                  <span>{voucherResult.voucherCode}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(voucherResult.voucherCode);
+                      toast.success("Voucher code copied to clipboard!");
+                    }}
+                    className="hover:text-white transition"
+                    title="Copy code"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  <p className="font-medium text-foreground">{voucherResult.reason}</p>
+                  <p>Remaining Points Balance: <span className="font-bold text-primary">{voucherResult.remainingPoints}</span> pts</p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => setVoucherResult(null)}
+                    className="rounded-md bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/30 transition"
+                  >
+                    Redeem Another Reward
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {loadingCatalog ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                ) : rewardOptions.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                    No active reward options currently available. Check back soon!
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {rewardOptions.map((opt) => {
+                      const IconComp = getOptionIcon(opt.icon);
+                      const canAfford = points >= opt.pointsCost;
+                      const isThisRedeeming = redeeming === opt.id;
+                      const progress = Math.min(100, Math.round((points / opt.pointsCost) * 100));
+
+                      return (
+                        <div
+                          key={opt.id}
+                          className={`rounded-xl border p-4 flex flex-col justify-between space-y-3 transition ${
+                            canAfford
+                              ? "border-border bg-card/90 hover:border-primary/50 shadow-sm"
+                              : "border-border/60 bg-card/40 opacity-75"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <IconComp className="h-4 w-4" />
+                              </span>
+                              <div className="text-right">
+                                <span className="font-mono text-sm font-bold text-primary">
+                                  {opt.pointsCost} <span className="text-xs font-normal">pts</span>
+                                </span>
+                                {opt.badge && (
+                                  <div className="mt-0.5">
+                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
+                                      {opt.badge}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <h5 className="font-display text-sm font-bold text-foreground mt-2">
+                              {opt.title}
+                            </h5>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {opt.description || "Arena perk voucher."}
+                            </p>
+                          </div>
+
+                          <div className="space-y-2 pt-2 border-t border-border/50">
+                            {!canAfford && (
+                              <div>
+                                <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                                  <span>Need {opt.pointsCost - points} more</span>
+                                  <span>{points}/{opt.pointsCost}</span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary/50 rounded-full"
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <button
+                              disabled={Boolean(redeeming) || !canAfford}
+                              onClick={() => handleRedeemOption(opt)}
+                              className={`w-full rounded-lg py-2 text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                                canAfford
+                                  ? "bg-primary text-primary-foreground hover:opacity-90 shadow"
+                                  : "bg-muted text-muted-foreground cursor-not-allowed"
+                              }`}
+                            >
+                              {isThisRedeeming ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Redeeming...
+                                </>
+                              ) : canAfford ? (
+                                <>
+                                  <Gift className="h-3.5 w-3.5" /> Redeem {opt.pointsCost} pts
+                                </>
+                              ) : (
+                                `Locked (${opt.pointsCost} pts)`
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Custom Points Bar */}
+                <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/60 text-xs">
+                  <span className="text-muted-foreground font-medium">Or custom points redemption:</span>
+                  <input
+                    type="number"
+                    min="10"
+                    max={points}
+                    placeholder="Points (min 10)"
+                    value={customPts}
+                    onChange={(e) => setCustomPts(e.target.value)}
+                    className="w-32 rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+                  />
+                  <button
+                    disabled={
+                      Boolean(redeeming) ||
+                      !customPts ||
+                      Number(customPts) > points ||
+                      Number(customPts) < 10
+                    }
+                    onClick={() => handleCustomRedeem(Number(customPts), "custom_discount")}
+                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+                  >
+                    {redeeming === "custom" ? "Redeeming..." : "Redeem Custom Pts"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ledger History List */}
+        {open && ledger.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <h5 className="font-display text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+              Recent Points Activity
+            </h5>
+            <ul className="space-y-2 overflow-y-auto max-h-56 divide-y divide-border/40">
+              {ledger.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-3 text-xs py-1.5 first:pt-0">
+                  <span className="min-w-0">
+                    <span className="block truncate text-foreground font-medium">{e.reason}</span>
+                    <span className="text-[11px] text-muted-foreground">{fmtDate(e.createdAt)}</span>
+                  </span>
+                  <span
+                    className={`shrink-0 font-display font-bold text-sm ${
+                      e.delta >= 0 ? "text-emerald-400" : "text-destructive"
+                    }`}
+                  >
+                    {e.delta >= 0 ? "+" : ""}
+                    {e.delta}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* SPECIAL OFFERS & PROMOTIONS SECTION */}
+      {offers.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5 card-glow space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <Tag className="h-5 w-5" />
               </span>
-              <span
-                className={`shrink-0 font-display font-bold ${
-                  e.delta >= 0 ? "text-primary" : "text-destructive"
-                }`}
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Active Arena Deals &amp; Promotional Offers
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Use these discount codes when booking stations or reserving tournament seats
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+              {offers.length} Active Deals
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {offers.map((off) => (
+              <div
+                key={off.id}
+                className="relative rounded-xl border border-dashed border-border bg-background/60 p-4 hover:border-primary/50 transition flex flex-col justify-between space-y-3"
               >
-                {e.delta >= 0 ? "+" : ""}
-                {e.delta}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 font-mono text-xs font-extrabold text-primary">
+                      <span>{off.code}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(off.code);
+                          toast.success(`Coupon code "${off.code}" copied!`);
+                        }}
+                        className="text-primary hover:text-white transition"
+                        title="Copy coupon code"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {off.badge && (
+                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
+                        {off.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <h5 className="font-display text-sm font-bold text-foreground mt-2">
+                    {off.title}
+                  </h5>
+                  <p className="font-display text-base font-extrabold text-emerald-400 mt-0.5">
+                    {off.discountType === "percentage"
+                      ? `${off.discountValue}% OFF`
+                      : `₹${off.discountValue} FLAT OFF`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                    {off.description}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+                  <span className="rounded bg-card px-2 py-0.5 border border-border">
+                    Min {off.minHours} hr(s)
+                  </span>
+                  <span className="rounded bg-card px-2 py-0.5 border border-border uppercase">
+                    {off.applicablePlatform === "all" ? "All Zones" : `${off.applicablePlatform} Zone`}
+                  </span>
+                  <span className="rounded bg-card px-2 py-0.5 border border-border">
+                    {off.validUntil}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

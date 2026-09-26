@@ -25,6 +25,7 @@ import {
   setupLabel,
   type Booking,
 } from "@/lib/bookings";
+import { listTournaments, type Tournament } from "@/lib/db";
 import { formatINR } from "@/lib/content";
 
 type StationStatus = "playing" | "reserved" | "available" | "maintenance";
@@ -40,7 +41,7 @@ interface Station {
 }
 
 const INITIAL_STATIONS: Station[] = [
-  // 20 PCs
+  // 10 PCs
   { id: "PC-01", type: "pc", status: "playing", game: "Valorant", customer: "Rahul M.", elapsedMinutes: 45, totalMinutes: 120 },
   { id: "PC-02", type: "pc", status: "playing", game: "CS2", customer: "Devansh K.", elapsedMinutes: 70, totalMinutes: 120 },
   { id: "PC-03", type: "pc", status: "reserved", game: "Apex Legends", customer: "Arjun S.", elapsedMinutes: 0, totalMinutes: 60 },
@@ -48,27 +49,14 @@ const INITIAL_STATIONS: Station[] = [
   { id: "PC-05", type: "pc", status: "maintenance" },
   { id: "PC-06", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 1", elapsedMinutes: 30, totalMinutes: 180 },
   { id: "PC-07", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 2", elapsedMinutes: 30, totalMinutes: 180 },
-  { id: "PC-08", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 3", elapsedMinutes: 30, totalMinutes: 180 },
-  { id: "PC-09", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 4", elapsedMinutes: 30, totalMinutes: 180 },
+  { id: "PC-08", type: "pc", status: "available" },
+  { id: "PC-09", type: "pc", status: "available" },
   { id: "PC-10", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 5", elapsedMinutes: 30, totalMinutes: 180 },
-  { id: "PC-11", type: "pc", status: "reserved", game: "CS2", customer: "Vicky P.", elapsedMinutes: 0, totalMinutes: 60 },
-  { id: "PC-12", type: "pc", status: "available" },
-  { id: "PC-13", type: "pc", status: "available" },
-  { id: "PC-14", type: "pc", status: "playing", game: "GTA V", customer: "Sameer N.", elapsedMinutes: 15, totalMinutes: 60 },
-  { id: "PC-15", type: "pc", status: "playing", game: "Tekken 8", customer: "Gaurav R.", elapsedMinutes: 50, totalMinutes: 120 },
-  { id: "PC-16", type: "pc", status: "available" },
-  { id: "PC-17", type: "pc", status: "reserved", game: "Valorant", customer: "Karan B.", elapsedMinutes: 0, totalMinutes: 60 },
-  { id: "PC-18", type: "pc", status: "available" },
-  { id: "PC-19", type: "pc", status: "available" },
-  { id: "PC-20", type: "pc", status: "playing", game: "Cyberpunk 2077", customer: "Pooja D.", elapsedMinutes: 80, totalMinutes: 120 },
 
-  // 6 PS5s
+  // 3 PS5s
   { id: "PS5-01", type: "ps5", status: "playing", game: "FC 26", customer: "Squad 4 (Amit + 3)", elapsedMinutes: 25, totalMinutes: 60 },
   { id: "PS5-02", type: "ps5", status: "playing", game: "Mortal Kombat 1", customer: "Rohan & Siddharth", elapsedMinutes: 40, totalMinutes: 120 },
   { id: "PS5-03", type: "ps5", status: "reserved", game: "WWE 2K25", customer: "Kunal J.", elapsedMinutes: 0, totalMinutes: 60 },
-  { id: "PS5-04", type: "ps5", status: "available" },
-  { id: "PS5-05", type: "ps5", status: "available" },
-  { id: "PS5-06", type: "ps5", status: "maintenance" },
 
   // 2 Racing Rigs
   { id: "RACING-01", type: "racing", status: "playing", game: "F1 25", customer: "Kabir V.", elapsedMinutes: 35, totalMinutes: 60 },
@@ -114,25 +102,52 @@ export function TodayLiveArenaTab() {
   const [stationTypeFilter, setStationTypeFilter] = useState<"all" | "pc" | "ps5" | "racing">("all");
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [search, setSearch] = useState("");
+  const [liveTime, setLiveTime] = useState(() => new Date().toLocaleTimeString());
+
+  // Real-time ticking clock every 1 second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLiveTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const reloadBookings = () => {
     void listAllBookings().then(setBookings).catch(() => setBookings([]));
+    void listTournaments().then(setTournaments).catch(() => setTournaments([]));
   };
 
   useEffect(() => {
     reloadBookings();
   }, []);
 
-  // Compute live stats matching wireframe
+  // Compute live station counts
   const playingCount = stations.filter((s) => s.status === "playing").length;
   const reservedCount = stations.filter((s) => s.status === "reserved").length;
   const availableCount = stations.filter((s) => s.status === "available").length;
   const maintenanceCount = stations.filter((s) => s.status === "maintenance").length;
 
-  const totalBookingsToday = 24;
-  const checkedInToday = 17;
-  const upcomingToday = 7;
+  // Real database dynamic KPI calculations
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayBookings = bookings.filter((b) => b.date === todayStr);
+  const effectiveBookings = todayBookings.length > 0 ? todayBookings : bookings;
+
+  const totalBookingsToday = todayBookings.length > 0 ? todayBookings.length : bookings.length;
+  const checkedInToday = effectiveBookings.filter(
+    (b) => b.status === "confirmed" || b.status === "completed"
+  ).length;
+  const upcomingToday = effectiveBookings.filter(
+    (b) => b.status === "pending" || b.status === "awaiting_payment"
+  ).length;
+
+  // Pick active / upcoming tournament from real database
+  const liveTournament =
+    tournaments.find((t) => t.status === "open") ||
+    tournaments.find((t) => t.status === "soon") ||
+    tournaments[0] ||
+    null;
 
   function cycleStatus(stationId: string) {
     const order: StationStatus[] = ["available", "playing", "reserved", "maintenance"];
@@ -152,9 +167,27 @@ export function TodayLiveArenaTab() {
     );
   }
 
-  function handleCheckIn(bookingId: string) {
-    void approveBooking(bookingId)
+  function handleCheckIn(booking: Booking) {
+    void approveBooking(booking.id)
       .then(() => {
+        // Auto-assign to first available matching station in live dashboard
+        setStations((prev) => {
+          let assigned = false;
+          return prev.map((s) => {
+            if (!assigned && s.type === booking.platform && (s.status === "available" || s.status === "reserved")) {
+              assigned = true;
+              return {
+                ...s,
+                status: "playing",
+                customer: booking.phone ? `+${booking.phone}` : "Gamer",
+                game: `${booking.platform.toUpperCase()} Session (${booking.durationLabel})`,
+                elapsedMinutes: 0,
+                totalMinutes: 60,
+              };
+            }
+            return s;
+          });
+        });
         toast.success(`Booking checked in successfully! Station assigned.`);
         reloadBookings();
       })
@@ -193,7 +226,7 @@ export function TodayLiveArenaTab() {
 
         <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
           <Clock className="h-4 w-4 text-primary" />
-          <span>Live Arena Time: {new Date().toLocaleTimeString()}</span>
+          <span>Live Arena Time: {liveTime}</span>
         </div>
       </div>
 
@@ -283,7 +316,7 @@ export function TodayLiveArenaTab() {
                       : "border border-border bg-card/60 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "all" ? "All (28)" : t === "pc" ? "PCs (20)" : t === "ps5" ? "PS5s (6)" : "Racing (2)"}
+                  {t === "all" ? "All (15)" : t === "pc" ? "PCs (10)" : t === "ps5" ? "PS5s (3)" : "Racing (2)"}
                 </button>
               ))}
             </div>
@@ -363,49 +396,60 @@ export function TodayLiveArenaTab() {
 
         {/* Live Tournament & Quick Check-in (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Tournament Live Card matching wireframe */}
+          {/* Tournament Live Card matching wireframe & connected to real DB */}
           <div className="rounded-2xl border border-primary/50 bg-gradient-to-br from-card via-card to-primary/10 p-6 card-glow">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 uppercase">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#25D366]" />
-                LIVE TOURNAMENT
+                {liveTournament?.status === "open" ? "LIVE TOURNAMENT" : "FEATURED TOURNAMENT"}
               </span>
               <Trophy className="h-5 w-5 text-primary" />
             </div>
 
             <h3 className="mt-4 font-display text-2xl font-black uppercase text-foreground">
-              VALORANT CUP
+              {liveTournament ? liveTournament.game : "VALORANT CUP"}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              AlphaQ Arena Fall Championship · Double Elimination
+              {liveTournament
+                ? `${liveTournament.format}${liveTournament.prize ? ` · ${liveTournament.prize}` : ""}`
+                : "AlphaQ Arena Fall Championship · Double Elimination"}
             </p>
 
             <div className="mt-5 space-y-3 rounded-xl border border-border/80 bg-background/60 p-4">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground uppercase font-semibold">Registered</span>
-                <span className="font-display font-bold text-foreground">16 / 16 Teams (FULL)</span>
+                <span className="font-display font-bold text-foreground">
+                  {liveTournament
+                    ? `${liveTournament.registeredCount ?? 0} / ${liveTournament.capacity ? `${liveTournament.capacity} Cap` : "Open"}`
+                    : "16 / 16 Teams"}
+                </span>
               </div>
               <div className="border-t border-border/60 pt-3">
                 <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
-                  Next Scheduled Match
+                  Event Schedule
                 </span>
                 <div className="mt-1 font-display text-base font-bold text-foreground">
-                  Alpha Squad vs Team X
+                  {liveTournament?.date || "Today"}
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Winners Bracket Round 3</span>
-                  <span className="font-mono text-emerald-400 font-bold">7:30 PM</span>
+                  <span className="capitalize">{liveTournament?.status === "soon" ? "Coming Soon" : liveTournament?.status || "Open"}</span>
+                  <span className="font-mono text-emerald-400 font-bold">{liveTournament?.prize || "Prize Pool"}</span>
                 </div>
+                {liveTournament?.description && (
+                  <p className="mt-2 text-[11px] text-muted-foreground line-clamp-2 border-t border-border/40 pt-2">
+                    {liveTournament.description}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => toast.success("Opening Tournament Manager")}
-                className="w-full rounded-xl bg-primary py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_4px_16px_var(--primary-shadow-glow)] transition hover:opacity-90"
+                onClick={() => toast.success("Navigate to Tournaments tab to manage brackets and registrations")}
+                className="w-full rounded-xl bg-primary py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_4px_16px_var(--primary-shadow-glow)] transition hover:opacity-90 cursor-pointer"
               >
-                Manage Bracket
+                Manage Tournaments
               </button>
             </div>
           </div>
@@ -445,8 +489,8 @@ export function TodayLiveArenaTab() {
                         </div>
                       </div>
                       <button
-                        onClick={() => handleCheckIn(b.id)}
-                        className="shrink-0 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500 hover:text-black transition"
+                        onClick={() => handleCheckIn(b)}
+                        className="shrink-0 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400 hover:bg-emerald-500 hover:text-black transition cursor-pointer"
                       >
                         Check In
                       </button>

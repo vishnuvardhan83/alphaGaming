@@ -35,7 +35,7 @@ export type NewBooking = {
   players: number;
 };
 
-export const SETUP_TOTALS = { pc: 20, ps5: 6, racing: 2 } as const;
+export const SETUP_TOTALS = { pc: 10, ps5: 3, racing: 2 } as const;
 
 /** Friendly labels for the extended status set. */
 export const STATUS_LABEL: Record<BookingStatus, string> = {

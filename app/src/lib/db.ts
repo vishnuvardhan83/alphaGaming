@@ -122,6 +122,11 @@ export interface Settings {
   ps5Price30m: string;
   ps5Price1h: string;
   ps5PriceDay: string;
+  // Pricing tiers for Racing Sim
+  racingCount?: string;
+  racingPrice30m?: string;
+  racingPrice1h?: string;
+  racingPriceDay?: string;
   // Stats shown in the "Why AlphaQ" section
   statSetups: string;   // e.g. "13"
   statRefresh: string;  // e.g. "240Hz"
@@ -288,13 +293,93 @@ export const uploadGalleryImage = (file: File, caption = "") => {
 };
 export const deleteGalleryImage = (id: string) => apiDelete(`/admin/gallery/${id}`);
 
-/* --------------------------------------------------------------- rewards -- */
+/* --------------------------------------------------------------- rewards & offers -- */
 
 export interface RewardsInfo {
   points: number;
   ledger: { id: string; delta: number; reason: string; createdAt: number }[];
 }
 export const getMyRewards = () => apiGet<RewardsInfo>("/rewards/me");
+
+export interface RewardOption {
+  id: number;
+  title: string;
+  description: string;
+  pointsCost: number;
+  rewardType: string;
+  discountAmount: number;
+  badge: string;
+  icon: string;
+  active: boolean;
+  sortOrder: number;
+  createdAt: number;
+}
+
+export interface NewRewardOption {
+  title: string;
+  description?: string;
+  pointsCost: number;
+  rewardType?: string;
+  discountAmount?: number;
+  badge?: string;
+  icon?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface Offer {
+  id: number;
+  title: string;
+  code: string;
+  description: string;
+  discountType: "percentage" | "flat";
+  discountValue: number;
+  minHours: number;
+  applicablePlatform: "all" | "pc" | "ps5" | "racing";
+  validUntil: string;
+  badge: string;
+  active: boolean;
+  createdAt: number;
+}
+
+export interface NewOffer {
+  title: string;
+  code: string;
+  description?: string;
+  discountType: "percentage" | "flat";
+  discountValue: number;
+  minHours?: number;
+  applicablePlatform?: "all" | "pc" | "ps5" | "racing";
+  validUntil?: string;
+  badge?: string;
+  active?: boolean;
+}
+
+export const listRewardOptions = () => apiGet<RewardOption[]>("/rewards/options");
+export const listAdminRewardOptions = () => apiGet<RewardOption[]>("/admin/rewards/options");
+export const createRewardOption = (data: NewRewardOption) => apiPost<RewardOption>("/admin/rewards/options", data);
+export const updateRewardOption = (id: number, data: Partial<NewRewardOption>) =>
+  apiPut<RewardOption>(`/admin/rewards/options/${id}`, data);
+export const deleteRewardOption = (id: number) => apiDelete(`/admin/rewards/options/${id}`);
+
+export const listOffers = () => apiGet<Offer[]>("/offers");
+export const listAdminOffers = () => apiGet<Offer[]>("/admin/offers");
+export const createOffer = (data: NewOffer) => apiPost<Offer>("/admin/offers", data);
+export const updateOffer = (id: number, data: Partial<NewOffer>) =>
+  apiPut<Offer>(`/admin/offers/${id}`, data);
+export const deleteOffer = (id: number) => apiDelete(`/admin/offers/${id}`);
+export const validateOfferCode = (code: string, platform?: string, hours?: number, amount?: number) =>
+  apiPost<{
+    valid: boolean;
+    code: string;
+    title: string;
+    discountType: string;
+    discountValue: number;
+    discountAmount: number;
+    finalAmount: number;
+    message: string;
+    offer: Offer;
+  }>("/offers/validate", { code, platform, hours, amount });
 
 /* -------------------------------------------------------------- settings -- */
 
@@ -422,6 +507,9 @@ export interface RedeemResult {
 
 export const redeemRewards = (points: number, rewardType: string = "discount_voucher") =>
   apiPost<RedeemResult>("/rewards/redeem", { points, rewardType });
+
+export const redeemRewardOption = (optionId: number) =>
+  apiPost<RedeemResult>("/rewards/redeem", { optionId });
 
 /* --------------------------------------------------------------- crypto tools -- */
 

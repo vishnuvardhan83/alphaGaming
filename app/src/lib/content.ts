@@ -34,7 +34,7 @@ export const PRICING: PlatformPricing[] = [
     key: "pc",
     name: "Gaming PC Zone",
     tagline: "High-refresh esports rigs · one gamer per PC",
-    capacity: "20 setups",
+    capacity: "10 setups",
     featured: true,
     tiers: [
       { label: "30 minutes", price: 50, unit: "30 min" },
@@ -47,7 +47,7 @@ export const PRICING: PlatformPricing[] = [
     key: "ps5",
     name: "PlayStation 5 Zone",
     tagline: "Big-TV couch lounge · up to 4 players per console",
-    capacity: "6 setups",
+    capacity: "3 setups",
     tiers: [
       { label: "30 minutes", price: 60, unit: "30 min" },
       { label: "Per hour", price: 120, unit: "hour" },

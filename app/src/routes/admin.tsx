@@ -55,6 +55,7 @@ import { DatabaseTab } from "@/components/admin/database-tab";
 import { RailwayTab } from "@/components/admin/railway-tab";
 import { NotificationsTab } from "@/components/admin/notifications-tab";
 import { TodayLiveArenaTab } from "@/components/admin/today-tab";
+import { RewardsManagementTab } from "@/components/admin/rewards-management-tab";
 import {
   listAllBookings,
   approveBooking,
@@ -78,6 +79,7 @@ import {
   deleteFood,
   listTournaments,
   createTournament,
+  updateTournament,
   deleteTournament,
   listTournamentRegistrations,
   deleteTournamentRegistration,
@@ -156,7 +158,7 @@ const TABS: { key: TabKey; label: string; icon: typeof Monitor }[] = [
   { key: "games", label: "Games", icon: Gamepad2 },
   { key: "food", label: "Food", icon: UtensilsCrossed },
   { key: "orders", label: "Food orders", icon: ShoppingBag },
-  { key: "rewards", label: "Rewards", icon: Gift },
+  { key: "rewards", label: "Rewards & Offers", icon: Gift },
   { key: "users", label: "Users / Staff", icon: Users },
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "photos", label: "Photos", icon: ImageIcon },
@@ -1051,6 +1053,7 @@ const TOURNAMENT_STATUSES: TournamentStatus[] = ["open", "soon", "full", "closed
 function TournamentsTab() {
   const [items, setItems] = useState<Tournament[] | null>(null);
   const [open, setOpen] = useState(false);
+  const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [regs, setRegs] = useState<TournamentRegistration[] | null>(null);
   const [regsLoading, setRegsLoading] = useState(false);
@@ -1068,6 +1071,30 @@ function TournamentsTab() {
     void listTournaments().then(setItems);
   };
   useEffect(reload, []);
+
+  function openAdd() {
+    setEditingTournament(null);
+    setGame("");
+    setFormat("");
+    setDate("");
+    setPrize("");
+    setStatus("open");
+    setCapacity(0);
+    setDescription("");
+    setOpen(true);
+  }
+
+  function openEdit(t: Tournament) {
+    setEditingTournament(t);
+    setGame(t.game);
+    setFormat(t.format);
+    setDate(t.date);
+    setPrize(t.prize);
+    setStatus(t.status);
+    setCapacity(t.capacity || 0);
+    setDescription(t.description || "");
+    setOpen(true);
+  }
 
   function viewRegistrations(t: Tournament) {
     setActiveTournament(t);
@@ -1090,7 +1117,7 @@ function TournamentsTab() {
     }
   }
 
-  async function add(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!game.trim()) {
       toast.error("Game is required.");
@@ -1098,27 +1125,34 @@ function TournamentsTab() {
     }
     setSaving(true);
     try {
-      await createTournament({
-        game: game.trim(),
-        format: format.trim(),
-        date: date.trim(),
-        prize: prize.trim(),
-        status,
-        description: description.trim(),
-        capacity: Number(capacity) || 0,
-      });
-      toast.success("Tournament added.");
-      setGame("");
-      setFormat("");
-      setDate("");
-      setPrize("");
-      setStatus("open");
-      setCapacity(0);
-      setDescription("");
+      if (editingTournament) {
+        await updateTournament(editingTournament.id, {
+          game: game.trim(),
+          format: format.trim(),
+          date: date.trim(),
+          prize: prize.trim(),
+          status,
+          description: description.trim(),
+          capacity: Number(capacity) || 0,
+        });
+        toast.success(`Tournament "${game.trim()}" updated successfully.`);
+      } else {
+        await createTournament({
+          game: game.trim(),
+          format: format.trim(),
+          date: date.trim(),
+          prize: prize.trim(),
+          status,
+          description: description.trim(),
+          capacity: Number(capacity) || 0,
+        });
+        toast.success("Tournament added.");
+      }
       setOpen(false);
+      setEditingTournament(null);
       reload();
     } catch {
-      toast.error("Couldn't add tournament.");
+      toast.error(editingTournament ? "Couldn't update tournament." : "Couldn't add tournament.");
     } finally {
       setSaving(false);
     }
@@ -1139,7 +1173,7 @@ function TournamentsTab() {
       <p className="font-display text-sm text-muted-foreground">
         Compete at <span className="text-primary">AlphaQ</span>
       </p>
-      <ListHeader title="Tournaments" addLabel="Add tournament" onAdd={() => setOpen(true)} />
+      <ListHeader title="Tournaments" addLabel="Add tournament" onAdd={openAdd} />
       <div className="space-y-3">
         {items === null ? (
           <Spinner />
@@ -1178,6 +1212,14 @@ function TournamentsTab() {
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={t.status} />
+                <button
+                  onClick={() => openEdit(t)}
+                  className={ghostBtn}
+                  aria-label="Edit tournament"
+                  title="Edit tournament or change status (Coming Soon/Open/Full/Closed)"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
                 <button onClick={() => remove(t)} className={dangerBtn} aria-label="Delete tournament">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -1187,8 +1229,15 @@ function TournamentsTab() {
         )}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Add tournament">
-        <form onSubmit={add} className="space-y-4">
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          setEditingTournament(null);
+        }}
+        title={editingTournament ? `Edit Tournament: ${editingTournament.game}` : "Add tournament"}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className={labelCls}>Game</label>
             <input className={inputCls} value={game} onChange={(e) => setGame(e.target.value)} placeholder="Valorant" />
@@ -1199,20 +1248,19 @@ function TournamentsTab() {
           </div>
           <div>
             <label className={labelCls}>Date</label>
-            <input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} />
+            <input type="text" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} placeholder="e.g. Sat, 27 Sep or 2026-10-15" />
           </div>
           <div>
-            <label className={labelCls}>Prize</label>
+            <label className={labelCls}>Prize Pool</label>
             <input className={inputCls} value={prize} onChange={(e) => setPrize(e.target.value)} placeholder="₹10,000 pool" />
           </div>
           <div>
-            <label className={labelCls}>Status</label>
+            <label className={labelCls}>Status (e.g. Open / Coming Soon / Full / Closed)</label>
             <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as TournamentStatus)}>
-              {TOURNAMENT_STATUSES.map((s) => (
-                <option key={s} value={s} className="bg-background capitalize">
-                  {s}
-                </option>
-              ))}
+              <option value="open">Open (Accepting Registrations)</option>
+              <option value="soon">Coming Soon (Registration opens soon)</option>
+              <option value="full">Full (Capacity reached)</option>
+              <option value="closed">Closed (Event concluded)</option>
             </select>
           </div>
           <div>
@@ -1220,16 +1268,23 @@ function TournamentsTab() {
             <input type="number" min={0} className={inputCls} value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
           </div>
           <div>
-            <label className={labelCls}>Description</label>
+            <label className={labelCls}>Description / Rules</label>
             <textarea
               className={`${inputCls} min-h-[72px] resize-y`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Doors 6pm. BYO peripherals."
+              placeholder="Registration opens soon — get your team ready. Doors 6pm."
             />
           </div>
           <button type="submit" disabled={saving} className={`${primaryBtn} flex w-full items-center justify-center gap-2 py-2.5`}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add tournament
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : editingTournament ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            {editingTournament ? "Save Tournament Changes" : "Add Tournament"}
           </button>
         </form>
       </Modal>
@@ -1674,6 +1729,7 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   // — Setup counts —
   { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability and booking counts.", placeholder: "10", type: "number", section: "Setup counts" },
   { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability and booking counts.", placeholder: "3", type: "number" },
+  { key: "racingCount", label: "Racing Sim rigs (total)", hint: "Sets availability and booking counts for Racing Sim.", placeholder: "2", type: "number" },
   // — PC Pricing —
   { key: "pcPrice30m", label: "PC — 30-minute price (₹)", hint: "e.g. 50", placeholder: "50", type: "number", section: "PC Pricing" },
   { key: "pcPrice1h", label: "PC — Per hour price (₹)", placeholder: "100", type: "number" },
@@ -1682,6 +1738,10 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   { key: "ps5Price30m", label: "PS5 — 30-minute price (₹)", placeholder: "60", type: "number", section: "PS5 Pricing" },
   { key: "ps5Price1h", label: "PS5 — Per hour price (₹)", placeholder: "120", type: "number" },
   { key: "ps5PriceDay", label: "PS5 — Full-day pass (₹)", placeholder: "600", type: "number" },
+  // — Racing Sim Pricing —
+  { key: "racingPrice30m", label: "Racing — 30-minute price (₹)", placeholder: "80", type: "number", section: "Racing Pricing" },
+  { key: "racingPrice1h", label: "Racing — Per hour price (₹)", placeholder: "150", type: "number" },
+  { key: "racingPriceDay", label: "Racing — Full-day pass (₹)", placeholder: "750", type: "number" },
   // — Stats (\"Why AlphaQ\" section) —
   { key: "statSetups", label: "Stat: Pro setups count", placeholder: "13", section: "Stats" },
   { key: "statRefresh", label: "Stat: Refresh rate", placeholder: "240Hz" },
@@ -2155,6 +2215,17 @@ function SettingsTab() {
                       />
                       <p className="mt-1 text-xs text-muted-foreground">Controls total console stations available.</p>
                     </div>
+                    <div>
+                      <label className={labelCls}>Racing Sim Rigs (total count)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.racingCount ?? ""}
+                        onChange={(e) => set("racingCount", e.target.value)}
+                        placeholder="2"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">Controls total pro direct-drive racing simulators.</p>
+                    </div>
                   </div>
                 </div>
 
@@ -2229,6 +2300,44 @@ function SettingsTab() {
                         value={values.ps5PriceDay ?? ""}
                         onChange={(e) => set("ps5PriceDay", e.target.value)}
                         placeholder="600"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1 mb-3">
+                    Racing Sim Hourly Pricing Tiers
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className={labelCls}>Racing — 30-min price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.racingPrice30m ?? ""}
+                        onChange={(e) => set("racingPrice30m", e.target.value)}
+                        placeholder="80"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Racing — 1-hour price (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.racingPrice1h ?? ""}
+                        onChange={(e) => set("racingPrice1h", e.target.value)}
+                        placeholder="150"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Racing — Full-day pass (₹)</label>
+                      <input
+                        type="number"
+                        className={inputCls}
+                        value={values.racingPriceDay ?? ""}
+                        onChange={(e) => set("racingPriceDay", e.target.value)}
+                        placeholder="750"
                       />
                     </div>
                   </div>
@@ -3061,7 +3170,7 @@ function AdminPage() {
       {tab === "reviews" && <ReviewsTab />}
       {tab === "photos" && <PhotosTab />}
       {tab === "settings" && <SettingsTab />}
-      {tab === "rewards" && <RewardsTab />}
+      {tab === "rewards" && <RewardsManagementTab />}
       {tab === "users" && <UsersTab />}
       {tab === "crypto" && <CryptoTab />}
       {tab === "database" && <DatabaseTab />}
