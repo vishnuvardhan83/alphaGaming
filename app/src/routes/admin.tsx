@@ -36,6 +36,9 @@ import {
   EyeOff,
   AlertCircle,
   XCircle,
+  KeyRound,
+  Database,
+  Sliders,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/modal";
@@ -46,6 +49,9 @@ import { useAuth } from "@/lib/auth";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
 import { LandingContent } from "@/components/landing-content";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CryptoTab } from "@/components/admin/crypto-tab";
+import { DatabaseTab } from "@/components/admin/database-tab";
+import { RailwayTab } from "@/components/admin/railway-tab";
 import {
   listAllBookings,
   approveBooking,
@@ -92,6 +98,7 @@ import {
   setUserRole,
   setUserBlocked,
   deleteUser,
+  adminUpdateUserPassword,
   type Game,
   type FoodItem,
   type Tournament,
@@ -132,7 +139,10 @@ type TabKey =
   | "photos"
   | "settings"
   | "rewards"
-  | "users";
+  | "users"
+  | "crypto"
+  | "database"
+  | "railway";
 
 const TABS: { key: TabKey; label: string; icon: typeof Monitor }[] = [
   { key: "bookings", label: "Bookings", icon: CalendarClock },
@@ -144,6 +154,9 @@ const TABS: { key: TabKey; label: string; icon: typeof Monitor }[] = [
   { key: "photos", label: "Photos", icon: ImageIcon },
   { key: "rewards", label: "Rewards", icon: Gift },
   { key: "users", label: "Users", icon: Users },
+  { key: "crypto", label: "Crypto Tool", icon: KeyRound },
+  { key: "database", label: "SQL Explorer", icon: Database },
+  { key: "railway", label: "Railway Config", icon: Sliders },
   { key: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
@@ -2501,6 +2514,32 @@ function UsersTab() {
     user: AdminUser;
   } | null>(null);
 
+  const [passwordModalUser, setPasswordModalUser] = useState<AdminUser | null>(null);
+  const [newDirectPassword, setNewDirectPassword] = useState("");
+  const [showDirectPass, setShowDirectPass] = useState(false);
+  const [updatingPass, setUpdatingPass] = useState(false);
+
+  async function handleUpdatePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordModalUser) return;
+    if (newDirectPassword.length < 6) {
+      toast.error("Password must be at least 6 characters.");
+      return;
+    }
+    setUpdatingPass(true);
+    try {
+      const res = await adminUpdateUserPassword(passwordModalUser.id, newDirectPassword);
+      toast.success(res.message);
+      setPasswordModalUser(null);
+      setNewDirectPassword("");
+      reload();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update password.");
+    } finally {
+      setUpdatingPass(false);
+    }
+  }
+
   const reload = () => {
     setUsers(null);
     void listUsers().then(setUsers);
@@ -2677,6 +2716,21 @@ function UsersTab() {
                     </select>
                   </div>
 
+                  {/* Set Password button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasswordModalUser(u);
+                      setNewDirectPassword("");
+                    }}
+                    disabled={busy === u.id}
+                    className={`${ghostBtn} inline-flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer`}
+                    title="Directly update password for this user"
+                  >
+                    <KeyRound className="h-3.5 w-3.5 text-primary" />
+                    Password
+                  </button>
+
                   {/* Block / Unblock button */}
                   <button
                     type="button"
@@ -2792,6 +2846,81 @@ function UsersTab() {
               </button>
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* Direct Password Update Modal */}
+      <Modal
+        open={Boolean(passwordModalUser)}
+        onClose={() => {
+          if (!updatingPass) setPasswordModalUser(null);
+        }}
+        title={passwordModalUser ? `Direct Password Update — ${passwordModalUser.name}` : "Set Password"}
+      >
+        {passwordModalUser && (
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
+            <div className="rounded-lg border border-border bg-background/60 p-3 text-xs space-y-1">
+              <p className="font-semibold text-foreground">{passwordModalUser.name}</p>
+              <p className="text-muted-foreground">Phone: +{passwordModalUser.phone}</p>
+              <p className="text-muted-foreground">Email: {passwordModalUser.email || "No email"}</p>
+              <p className="text-[11px] text-primary">
+                As admin, you can directly set a new password without needing the user's old password.
+              </p>
+            </div>
+
+            <div>
+              <label className={labelCls}>New Password</label>
+              <div className="relative mt-1">
+                <input
+                  type={showDirectPass ? "text" : "password"}
+                  className={`${inputCls} pr-10`}
+                  placeholder="min 6 characters"
+                  value={newDirectPassword}
+                  onChange={(e) => setNewDirectPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDirectPass((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showDirectPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%";
+                  let pass = "";
+                  for (let i = 0; i < 10; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+                  setNewDirectPassword(pass);
+                  setShowDirectPass(true);
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                Quick Suggest Strong Password
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                disabled={updatingPass}
+                onClick={() => setPasswordModalUser(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button type="submit" disabled={updatingPass} className={primaryBtn}>
+                {updatingPass ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Update Password
+              </button>
+            </div>
+          </form>
         )}
       </Modal>
 
@@ -2926,6 +3055,9 @@ function AdminPage() {
       {tab === "settings" && <SettingsTab />}
       {tab === "rewards" && <RewardsTab />}
       {tab === "users" && <UsersTab />}
+      {tab === "crypto" && <CryptoTab />}
+      {tab === "database" && <DatabaseTab />}
+      {tab === "railway" && <RailwayTab />}
     </AppShell>
   );
 }

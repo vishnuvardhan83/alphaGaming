@@ -39,6 +39,7 @@ import {
 } from "@/lib/bookings";
 import {
   getMyRewards,
+  redeemRewards,
   getSettings,
   listMyRegistrations,
   listTournaments,
@@ -86,29 +87,53 @@ function fmtDate(ms: number): string {
 }
 
 function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
+  const { user } = useAuth();
   const [rewards, setRewards] = useState<RewardsInfo | null>(null);
   const [open, setOpen] = useState(true);
+  const [redeemOpen, setRedeemOpen] = useState(false);
+  const [redeeming, setRedeeming] = useState(false);
+  const [customPts, setCustomPts] = useState("");
+  const [voucherResult, setVoucherResult] = useState<any | null>(null);
+
+  const fetchRewards = () => {
+    void getMyRewards()
+      .then((r) => setRewards(r))
+      .catch(() => {});
+  };
 
   useEffect(() => {
-    let alive = true;
-    void getMyRewards()
-      .then((r) => {
-        if (alive) setRewards(r);
-      })
-      .catch(() => {
-        // fall back to user.rewardPoints below
-      });
-    return () => {
-      alive = false;
-    };
+    fetchRewards();
   }, []);
 
-  const points = rewards?.points ?? fallbackPoints;
+  const points = rewards?.points ?? user?.rewardPoints ?? fallbackPoints;
   const ledger = rewards?.ledger ?? [];
 
+  async function handleRedeem(ptsToRedeem: number, type: string) {
+    if (ptsToRedeem <= 0 || isNaN(ptsToRedeem)) {
+      toast.error("Enter a valid number of points.");
+      return;
+    }
+    if (points < ptsToRedeem) {
+      toast.error(`Insufficient points. You have ${points} points.`);
+      return;
+    }
+
+    try {
+      setRedeeming(true);
+      const res = await redeemRewards(ptsToRedeem, type);
+      setVoucherResult(res);
+      toast.success(res.message);
+      fetchRewards();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to redeem points.");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5 card-glow">
-      <div className="flex items-center justify-between gap-4">
+    <div className="rounded-xl border border-border bg-card p-5 card-glow space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Gift className="h-5 w-5" />
@@ -118,23 +143,143 @@ function RewardsCard({ fallbackPoints }: { fallbackPoints: number }) {
               {points.toLocaleString()} <span className="text-sm font-semibold">points</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              Earn points on every confirmed booking; redeem on food.
+              Earn on every confirmed booking; redeem for instant vouchers & free hours.
             </p>
           </div>
         </div>
-        {ledger.length > 0 && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setOpen((v) => !v)}
-            className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-primary"
+            onClick={() => {
+              setVoucherResult(null);
+              setRedeemOpen(true);
+            }}
+            disabled={points <= 0}
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
           >
-            {open ? "Hide" : "History"}
-            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <Gift className="h-3.5 w-3.5" />
+            Redeem Points
           </button>
-        )}
+          {ledger.length > 0 && (
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-primary"
+            >
+              {open ? "Hide" : "History"}
+              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Redeem Modal */}
+      {redeemOpen && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+              <Gift className="h-4 w-4 text-primary" /> Select Reward to Redeem
+            </h4>
+            <button
+              onClick={() => setRedeemOpen(false)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Close
+            </button>
+          </div>
+
+          {voucherResult ? (
+            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-center space-y-2">
+              <p className="text-xs font-semibold text-emerald-400">🎉 Voucher Generated Successfully!</p>
+              <div className="inline-flex items-center gap-2 rounded border border-emerald-500/40 bg-background/80 px-3 py-1 text-sm font-mono font-bold text-emerald-400">
+                <span>{voucherResult.voucherCode}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(voucherResult.voucherCode);
+                    toast.success("Voucher code copied to clipboard!");
+                  }}
+                  className="hover:text-white"
+                  title="Copy code"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">{voucherResult.reason}</p>
+              <p className="text-[11px] text-muted-foreground">
+                Remaining balance: {voucherResult.remainingPoints} points
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
+                <div>
+                  <p className="font-semibold text-xs text-foreground">₹50 Café Voucher</p>
+                  <p className="text-[11px] text-muted-foreground">50 Reward Points</p>
+                </div>
+                <button
+                  disabled={redeeming || points < 50}
+                  onClick={() => handleRedeem(50, "cafe_discount")}
+                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
+                >
+                  {redeeming ? "Redeeming..." : "Redeem 50 pts"}
+                </button>
+              </div>
+
+              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
+                <div>
+                  <p className="font-semibold text-xs text-foreground">1 Free Gaming Hour</p>
+                  <p className="text-[11px] text-muted-foreground">100 Reward Points</p>
+                </div>
+                <button
+                  disabled={redeeming || points < 100}
+                  onClick={() => handleRedeem(100, "gaming_hour")}
+                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
+                >
+                  {redeeming ? "Redeeming..." : "Redeem 100 pts"}
+                </button>
+              </div>
+
+              <div className="rounded-md border border-border bg-card p-3 flex flex-col justify-between space-y-2">
+                <div>
+                  <p className="font-semibold text-xs text-foreground">VIP Pass Voucher</p>
+                  <p className="text-[11px] text-muted-foreground">200 Reward Points</p>
+                </div>
+                <button
+                  disabled={redeeming || points < 200}
+                  onClick={() => handleRedeem(200, "vip_pass")}
+                  className="rounded bg-primary/20 hover:bg-primary/30 text-primary text-xs font-semibold py-1 px-2 disabled:opacity-40 transition"
+                >
+                  {redeeming ? "Redeeming..." : "Redeem 200 pts"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!voucherResult && (
+            <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs">
+              <span className="text-muted-foreground">Or custom points:</span>
+              <input
+                type="number"
+                min="10"
+                max={points}
+                placeholder="Points"
+                value={customPts}
+                onChange={(e) => setCustomPts(e.target.value)}
+                className="w-24 rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+              />
+              <button
+                disabled={redeeming || !customPts || Number(customPts) > points || Number(customPts) < 10}
+                onClick={() => handleRedeem(Number(customPts), "custom_discount")}
+                className="rounded bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                Redeem
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {open && ledger.length > 0 && (
-        <ul className="mt-4  space-y-2 overflow-y-auto border-t border-border pt-4">
+        <ul className="mt-4 space-y-2 overflow-y-auto border-t border-border pt-4 max-h-60">
           {ledger.map((e) => (
             <li key={e.id} className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0">

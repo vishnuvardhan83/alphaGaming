@@ -399,3 +399,168 @@ export const listAdminGroupQuotes = () =>
 /** Admin: update the status of a group quote. */
 export const updateGroupQuoteStatus = (id: string, status: GroupQuote["status"]) =>
   apiPatch<GroupQuote>(`/admin/group-quotes/${id}`, { status });
+
+/* ------------------------------------------------------------- admin password -- */
+
+export const adminUpdateUserPassword = (userId: number, password: string) =>
+  apiPost<{ ok: boolean; message: string; user: AdminUser }>(`/admin/users/${userId}/password`, {
+    password,
+  });
+
+/* ----------------------------------------------------------- rewards redeem -- */
+
+export interface RedeemResult {
+  ok: boolean;
+  voucherCode: string;
+  rewardType: string;
+  itemTitle: string;
+  pointsRedeemed: number;
+  remainingPoints: number;
+  reason: string;
+  message: string;
+}
+
+export const redeemRewards = (points: number, rewardType: string = "discount_voucher") =>
+  apiPost<RedeemResult>("/rewards/redeem", { points, rewardType });
+
+/* --------------------------------------------------------------- crypto tools -- */
+
+export interface HashMeta {
+  valid: boolean;
+  algorithm: string;
+  version?: string | null;
+  rounds?: number | null;
+  salt?: string;
+  length: number;
+  sample?: string;
+  error?: string;
+}
+
+export const cryptoVerifyPassword = (password: string, hash: string) =>
+  apiPost<{ match: boolean; hashMeta?: HashMeta; error?: string }>("/admin/crypto/verify-password", {
+    password,
+    hash,
+  });
+
+export const cryptoHashPassword = (password: string, rounds: number = 10) =>
+  apiPost<{ plain: string; hash: string; rounds: number; hashMeta: HashMeta }>(
+    "/admin/crypto/hash-password",
+    { password, rounds },
+  );
+
+export const cryptoInspectHash = (hash: string) =>
+  apiPost<HashMeta>("/admin/crypto/inspect-hash", { hash });
+
+export const cryptoCheckUserPassword = (identifier: string, password: string) =>
+  apiPost<{
+    match: boolean;
+    user: { id: number; name: string; phone: string; email: string; role: string; emailVerified: boolean; blocked: boolean };
+    passwordHash: string;
+    hashMeta: HashMeta;
+  }>("/admin/crypto/check-user-password", { identifier, password });
+
+export const cryptoInspectOtp = (email: string, otp: string = "") =>
+  apiPost<{
+    found: boolean;
+    email: string;
+    verifications: Array<{
+      id: number;
+      purpose: string;
+      createdAt: number;
+      expiresAt: number;
+      expired: boolean;
+      attemptCount: number;
+      verifiedAt: number | null;
+      otpHash: string;
+      testedOtpMatch: boolean | null;
+      computedHmac: string | null;
+    }>;
+  }>("/admin/crypto/inspect-otp", { email, otp });
+
+/* ------------------------------------------------------------- database admin -- */
+
+export interface TableColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  key: string;
+  default: any;
+  extra?: string;
+}
+
+export interface TableInfo {
+  name: string;
+  rowCount: number;
+  columns: TableColumn[];
+}
+
+export interface TableRowsResult {
+  tableName: string;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  columns: TableColumn[];
+  rows: Record<string, any>[];
+}
+
+export interface SqlQueryResult {
+  type: "select" | "mutation";
+  columns?: string[];
+  rows?: Record<string, any>[];
+  rowCount?: number;
+  changes?: number;
+  lastInsertRowid?: number | string;
+  durationMs: number;
+  message?: string;
+}
+
+export const listDbTables = () =>
+  apiGet<{ dbKind: string; tables: TableInfo[] }>("/admin/database/tables");
+
+export const getDbTableRows = (
+  tableName: string,
+  params: { page?: number; limit?: number; sortBy?: string; sortDir?: string } = {},
+) => {
+  const q = new URLSearchParams();
+  if (params.page) q.set("page", String(params.page));
+  if (params.limit) q.set("limit", String(params.limit));
+  if (params.sortBy) q.set("sortBy", params.sortBy);
+  if (params.sortDir) q.set("sortDir", params.sortDir);
+  return apiGet<TableRowsResult>(`/admin/database/table/${encodeURIComponent(tableName)}?${q.toString()}`);
+};
+
+export const executeDbQuery = (sql: string) =>
+  apiPost<SqlQueryResult>("/admin/database/query", { sql });
+
+export const insertDbTableRow = (tableName: string, row: Record<string, any>) =>
+  apiPost<{ ok: boolean; lastInsertRowid: any; changes: number }>(
+    `/admin/database/table/${encodeURIComponent(tableName)}/insert`,
+    { row },
+  );
+
+export const deleteDbTableRow = (tableName: string, primaryKey: string, id: any) =>
+  apiDelete(`/admin/database/table/${encodeURIComponent(tableName)}/row?primaryKey=${encodeURIComponent(primaryKey)}&id=${encodeURIComponent(id)}`);
+
+/* ---------------------------------------------------------- railway variables -- */
+
+export interface RailwayVariablesResult {
+  source: string;
+  projectId: string;
+  environmentId: string;
+  serviceId: string;
+  variables: Record<string, string>;
+}
+
+export const getRailwayVariables = () =>
+  apiGet<RailwayVariablesResult>("/admin/railway/variables");
+
+export const setRailwayVariable = (name: string, value: string) =>
+  apiPost<{ ok: boolean; name: string; value: string; railwayUpdated: boolean; methodUsed: string; message: string }>(
+    "/admin/railway/variables",
+    { name, value },
+  );
+
+export const deleteRailwayVariable = (name: string) =>
+  apiDelete(`/admin/railway/variables/${encodeURIComponent(name)}`);
+

@@ -36,6 +36,10 @@ const {
 } = require("./services/authService");
 const { notifyAdminNewBooking } = require("./services/bookingNotificationService");
 const { startPeriodicCleanup } = require("./services/otpService");
+const crypto = require("crypto");
+const cryptoService = require("./services/cryptoService");
+const dbAdminService = require("./services/databaseAdminService");
+const railwayService = require("./services/railwayService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "alphaq-dev-secret-change-me";
 const PORT = process.env.PORT || 4000;
@@ -642,6 +646,45 @@ app.get(
   }),
 );
 
+// Redeem reward points for discounts, coupons, and vouchers
+app.post(
+  "/api/rewards/redeem",
+  auth(),
+  wrap(async (req, res) => {
+    const points = Math.floor(Number(req.body.points));
+    const rewardType = String(req.body.rewardType || "discount_voucher");
+    if (!points || isNaN(points) || points <= 0) {
+      throw new Error("Points to redeem must be greater than 0.");
+    }
+    const currentPoints = req.user.reward_points || 0;
+    if (currentPoints < points) {
+      throw new Error(`Insufficient reward points. You currently have ${currentPoints} points.`);
+    }
+
+    const voucherCode = `ALPHAQ-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    let itemTitle = `₹${points} Café / Booking Discount`;
+    if (rewardType === "gaming_hour") itemTitle = "1 Free Gaming Hour Voucher";
+    else if (rewardType === "vip_pass") itemTitle = "VIP Tournament Pass Voucher";
+    else if (rewardType === "snack_combo") itemTitle = "Gamer Snack & Drink Combo Voucher";
+
+    const reason = `Redeemed ${points} pts for ${itemTitle} [Code: ${voucherCode}]`;
+
+    await addReward(req.user.id, -points, reason);
+
+    const updatedUser = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
+    res.json({
+      ok: true,
+      voucherCode,
+      rewardType,
+      itemTitle,
+      pointsRedeemed: points,
+      remainingPoints: updatedUser.reward_points,
+      reason,
+      message: `Successfully redeemed ${points} points! Your voucher code is ${voucherCode}`,
+    });
+  }),
+);
+
 /* ------------------------------------------------------------- reviews --- */
 
 app.post(
@@ -1150,6 +1193,165 @@ app.post(
     if (!u) throw new Error("User not found.");
     await addReward(userId, delta, String(req.body.reason || "Manual adjustment"));
     res.json(publicUser(await db.get("SELECT * FROM users WHERE id = ?", [userId])));
+  }),
+);
+
+// Admin: Direct password update for any user
+app.post(
+  "/api/admin/users/:id/password",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const newPass = String(req.body.password || "").trim();
+    if (!newPass || newPass.length < 6) {
+      throw new Error("Password must be at least 6 characters.");
+    }
+    const u = await db.get("SELECT * FROM users WHERE id = ?", [req.params.id]);
+    if (!u) throw new Error("User not found.");
+
+    const hash = bcrypt.hashSync(newPass, 10);
+    await db.run("UPDATE users SET password_hash = ? WHERE id = ?", [hash, u.id]);
+    res.json({
+      ok: true,
+      message: `Password updated successfully for ${u.name} (${u.phone || u.email}).`,
+      user: publicUser(await db.get("SELECT * FROM users WHERE id = ?", [u.id])),
+    });
+  }),
+);
+
+/* ----------------------------------------------------------- crypto tool -- */
+
+app.post(
+  "/api/admin/crypto/verify-password",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { password, hash } = req.body;
+    const result = cryptoService.verifyPassword(password, hash);
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/crypto/hash-password",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { password, rounds } = req.body;
+    const result = cryptoService.hashPassword(password, rounds);
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/crypto/inspect-hash",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { hash } = req.body;
+    res.json(cryptoService.inspectHash(hash));
+  }),
+);
+
+app.post(
+  "/api/admin/crypto/check-user-password",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { identifier, password } = req.body;
+    const result = await cryptoService.checkUserPassword(db, identifier, password);
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/crypto/inspect-otp",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { email, otp } = req.body;
+    const result = await cryptoService.inspectDbOtp(db, email, otp);
+    res.json(result);
+  }),
+);
+
+/* ----------------------------------------------------- database admin -- */
+
+app.get(
+  "/api/admin/database/tables",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const tables = await dbAdminService.listTables(db);
+    res.json({ dbKind: db.kind, tables });
+  }),
+);
+
+app.get(
+  "/api/admin/database/table/:name",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { page, limit, sortBy, sortDir } = req.query;
+    const result = await dbAdminService.getTableRows(db, req.params.name, {
+      page,
+      limit,
+      sortBy,
+      sortDir,
+    });
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/database/query",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { sql } = req.body;
+    const result = await dbAdminService.executeSql(db, sql);
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/database/table/:name/insert",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { row } = req.body;
+    const result = await dbAdminService.insertTableRow(db, req.params.name, row);
+    res.json(result);
+  }),
+);
+
+app.delete(
+  "/api/admin/database/table/:name/row",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { primaryKey, id } = req.body;
+    const result = await dbAdminService.deleteTableRow(db, req.params.name, primaryKey, id);
+    res.json(result);
+  }),
+);
+
+/* --------------------------------------------------- railway variables -- */
+
+app.get(
+  "/api/admin/railway/variables",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const vars = await railwayService.getVariables();
+    res.json(vars);
+  }),
+);
+
+app.post(
+  "/api/admin/railway/variables",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { name, value } = req.body;
+    const result = await railwayService.setVariable(name, value);
+    res.json(result);
+  }),
+);
+
+app.delete(
+  "/api/admin/railway/variables/:name",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const result = await railwayService.deleteVariable(req.params.name);
+    res.json(result);
   }),
 );
 
