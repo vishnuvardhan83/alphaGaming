@@ -40,6 +40,15 @@ const crypto = require("crypto");
 const cryptoService = require("./services/cryptoService");
 const dbAdminService = require("./services/databaseAdminService");
 const railwayService = require("./services/railwayService");
+const {
+  getNotificationSettings,
+  updateNotificationSettings,
+  getProviderSecretStatus,
+} = require("./services/notifications/notificationSettings");
+const {
+  sendTestEmail,
+  sendTestSms,
+} = require("./services/notifications/notificationService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "alphaq-dev-secret-change-me";
 const PORT = process.env.PORT || 4000;
@@ -344,7 +353,7 @@ app.post(
   auth(),
   wrap(async (req, res) => {
     const b = req.body || {};
-    const platform = b.platform === "ps5" ? "ps5" : "pc";
+    const platform = b.platform === "ps5" ? "ps5" : b.platform === "racing" ? "racing" : "pc";
     const info = await db.run(
       `INSERT INTO bookings(user_id, phone, platform, date, slot, duration_label, price, players, status, created_at)
        VALUES(?,?,?,?,?,?,?,?, 'awaiting_payment', ?)`,
@@ -1111,6 +1120,47 @@ app.put(
       if (typeof v === "string") await setSetting(k, v);
     }
     res.json(await allSettings());
+  }),
+);
+
+// Section 25: Admin Notification Settings & Test APIs
+app.get(
+  "/api/admin/notifications/settings",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const settings = await getNotificationSettings();
+    const providerStatus = getProviderSecretStatus();
+    res.json({ settings, providerStatus });
+  }),
+);
+
+app.put(
+  "/api/admin/notifications/settings",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const updated = await updateNotificationSettings(req.body);
+    const providerStatus = getProviderSecretStatus();
+    res.json({ settings: updated, providerStatus });
+  }),
+);
+
+app.post(
+  "/api/admin/notifications/test-email",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { to } = req.body || {};
+    const result = await sendTestEmail({ to });
+    res.json(result);
+  }),
+);
+
+app.post(
+  "/api/admin/notifications/test-sms",
+  ...adminOnly,
+  wrap(async (req, res) => {
+    const { to } = req.body || {};
+    const result = await sendTestSms({ to });
+    res.json(result);
   }),
 );
 

@@ -1,16 +1,15 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, X, ArrowRight, LogOut, LayoutDashboard, Shield } from "lucide-react";
+import { Menu, X, ArrowRight, LogOut, LayoutDashboard, Shield, Gamepad2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const LINKS = [
-  { label: "Setups", href: "/#battlestation" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Games", href: "/#games" },
-  { label: "Food", href: "/#food" },
-  { label: "Events", href: "/#tournaments" },
-  { label: "Visit", href: "/#visit" },
+  { label: "HOME", href: "/#top" },
+  { label: "GAMES", href: "/#games" },
+  { label: "CAFÉ", href: "/#food" },
+  { label: "TOURNAMENTS", href: "/#tournaments" },
+  { label: "PRICING", href: "/#pricing" },
 ];
 
 export function SiteNav() {
@@ -19,16 +18,21 @@ export function SiteNav() {
   const navigate = useNavigate();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Brand logo */}
-        <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary font-display text-sm font-extrabold text-primary-foreground shadow-[0_4px_16px_var(--primary-shadow-glow)]">
-            AQ
+        <Link to="/" className="flex items-center gap-3 group">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-deep font-display text-sm font-extrabold text-primary-foreground shadow-[0_0_20px_var(--primary-glow)] transition group-hover:scale-105">
+            <Gamepad2 className="h-5 w-5" />
           </span>
-          <span className="font-display text-xl font-bold tracking-wider text-foreground">
-            ALPHAQ
-          </span>
+          <div className="flex flex-col">
+            <span className="font-display text-lg font-black tracking-widest text-foreground leading-none">
+              ALPHAQ
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-widest text-primary font-semibold">
+              Esports Arena
+            </span>
+          </div>
         </Link>
 
         {/* Center navigation links */}
@@ -37,7 +41,7 @@ export function SiteNav() {
             <a
               key={l.href}
               href={l.href}
-              className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              className="font-display text-xs font-bold tracking-wider text-muted-foreground transition hover:text-foreground hover:text-glow"
             >
               {l.label}
             </a>
@@ -52,47 +56,47 @@ export function SiteNav() {
             <>
               <Link
                 to="/dashboard"
-                className="flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground transition hover:border-primary/50"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-card/60 px-3.5 py-1.5 font-display text-xs font-semibold uppercase tracking-wider text-foreground transition hover:border-primary/50"
               >
-                <LayoutDashboard className="h-4 w-4" /> Dashboard
+                <LayoutDashboard className="h-3.5 w-3.5 text-primary" /> Dashboard
               </Link>
               {isAdmin && (
                 <Link
                   to="/admin"
-                  className="flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground transition hover:border-primary/50"
+                  className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-1.5 font-display text-xs font-semibold uppercase tracking-wider text-primary transition hover:bg-primary/20"
                 >
-                  <Shield className="h-4 w-4" /> Admin
+                  <Shield className="h-3.5 w-3.5" /> Staff Portal
                 </Link>
               )}
               <Link
                 to="/book"
-                className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 font-display text-xs font-bold uppercase tracking-widest text-primary-foreground shadow-[0_0_20px_var(--primary-glow)] transition hover:opacity-90 hover:scale-105 active:scale-95"
               >
-                Book a setup
+                BOOK NOW
               </Link>
               <button
                 onClick={async () => {
                   await signOut();
                   navigate({ to: "/" });
                 }}
-                className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs text-muted-foreground transition hover:text-foreground"
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition hover:text-foreground"
               >
-                <LogOut className="h-3.5 w-3.5" /> Sign out
+                <LogOut className="h-3.5 w-3.5" />
               </button>
             </>
           ) : (
             <>
               <Link
                 to="/auth"
-                className="rounded-full border border-border bg-card/40 px-5 py-1.5 text-sm font-semibold text-foreground/90 transition hover:border-primary/50 hover:text-foreground"
+                className="rounded-lg border border-border bg-card/50 px-4 py-1.5 font-display text-xs font-semibold uppercase tracking-wider text-foreground transition hover:border-primary/50"
               >
                 Login
               </Link>
               <Link
-                to="/auth"
-                className="flex items-center gap-1.5 rounded-full bg-primary px-5 py-1.5 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
+                to="/book"
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2 font-display text-xs font-bold uppercase tracking-widest text-primary-foreground shadow-[0_0_20px_var(--primary-glow)] transition hover:opacity-90 hover:scale-105 active:scale-95"
               >
-                Sign up <ArrowRight className="h-4 w-4" />
+                BOOK NOW
               </Link>
             </>
           )}

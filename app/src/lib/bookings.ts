@@ -12,7 +12,7 @@ export interface Booking {
   id: string;
   userId: string;
   phone: string;
-  platform: "pc" | "ps5";
+  platform: "pc" | "ps5" | "racing";
   date: string; // YYYY-MM-DD
   slot: string; // HH:mm
   durationLabel: string;
@@ -27,7 +27,7 @@ export interface Booking {
 export type NewBooking = {
   userId?: string;
   phone?: string;
-  platform: "pc" | "ps5";
+  platform: "pc" | "ps5" | "racing";
   date: string;
   slot: string;
   durationLabel: string;
@@ -35,7 +35,7 @@ export type NewBooking = {
   players: number;
 };
 
-export const SETUP_TOTALS = { pc: 10, ps5: 3 } as const;
+export const SETUP_TOTALS = { pc: 20, ps5: 6, racing: 2 } as const;
 
 /** Friendly labels for the extended status set. */
 export const STATUS_LABEL: Record<BookingStatus, string> = {
@@ -97,7 +97,7 @@ export async function updateBookingStatus(id: string, status: BookingStatus): Pr
 }
 
 /** Count of active bookings for a platform on a date (for availability chips). */
-export async function countBookings(platform: "pc" | "ps5", date: string): Promise<number> {
+export async function countBookings(platform: "pc" | "ps5" | "racing", date: string): Promise<number> {
   const r = await apiGet<{ booked: number }>(
     `/availability?platform=${platform}&date=${date}`,
   );

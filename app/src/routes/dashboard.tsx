@@ -17,9 +17,18 @@ import {
   User,
   Settings as SettingsIcon,
   ArrowRight,
+  Plus,
   Pencil,
   AlertCircle,
   Copy,
+  Bell,
+  Search,
+  Check,
+  Clock,
+  Gamepad2,
+  Gauge,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, type ShellNavItem } from "@/components/app-shell";
@@ -43,10 +52,14 @@ import {
   getSettings,
   listMyRegistrations,
   listTournaments,
+  listGames,
+  listLeaderboard,
   type RewardsInfo,
   type Settings,
   type TournamentRegistration,
   type Tournament,
+  type Game,
+  type LeaderboardEntry,
 } from "@/lib/db";
 import { formatINR } from "@/lib/content";
 import QRCode from "qrcode";
@@ -643,13 +656,16 @@ function BookingCard({
 }
 
 const CUSTOMER_NAV: ShellNavItem[] = [
-  { key: "home", label: "Home", icon: Home },
+  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "games", label: "Browse Games", icon: Gamepad2 },
+  { key: "book", label: "Book a Station", icon: Monitor },
   { key: "bookings", label: "My Bookings", icon: CalendarClock },
-  { key: "food", label: "Food Order", icon: UtensilsCrossed },
-  { key: "rewards", label: "Rewards", icon: Gift },
   { key: "tournaments", label: "Tournaments", icon: Trophy },
-  { key: "payment", label: "Payment", icon: CreditCard },
+  { key: "food", label: "Food & Drinks", icon: UtensilsCrossed },
+  { key: "rewards", label: "Rewards", icon: Gift },
+  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "profile", label: "Profile", icon: User },
+  { key: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
 function StatCard({ icon: Icon, label, value }: { icon: typeof Gift; label: string; value: string | number }) {
@@ -683,34 +699,63 @@ function Row({ label, value }: { label: string; value: string }) {
 function DashboardPage() {
   const { user, phone, loading } = useAuth();
   const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const VALID_TABS = [
+    "dashboard",
+    "home",
+    "games",
+    "book",
+    "bookings",
+    "tournaments",
+    "food",
+    "rewards",
+    "notifications",
+    "profile",
+    "settings",
+    "payment",
+  ];
+
   const [tab, setTab] = useState(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "");
-      if (hash && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(hash)) {
+      if (hash && VALID_TABS.includes(hash)) {
         return hash;
       }
       const params = new URLSearchParams(window.location.search);
       const qTab = params.get("tab");
-      if (qTab && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(qTab)) {
+      if (qTab && VALID_TABS.includes(qTab)) {
         return qTab;
       }
     }
-    return "home";
+    return "dashboard";
   });
 
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace("#", "");
-      if (hash && ["home", "bookings", "food", "rewards", "tournaments", "payment", "profile", "settings"].includes(hash)) {
+      if (hash && VALID_TABS.includes(hash)) {
         setTab(hash);
       }
     };
     window.addEventListener("hashchange", handleHash);
     return () => window.removeEventListener("hashchange", handleHash);
   }, []);
+
   const [showBook, setShowBook] = useState(false);
+  const [selectedBookPlatform, setSelectedBookPlatform] = useState<"pc" | "ps5" | "racing">("pc");
+  const [bookingFilter, setBookingFilter] = useState<"all" | "upcoming" | "completed" | "cancelled">("all");
   const [myRegs, setMyRegs] = useState<TournamentRegistration[]>([]);
   const [tournamentsMap, setTournamentsMap] = useState<Record<string, Tournament>>({});
+  const [games, setGames] = useState<Game[]>([]);
+  const [gameSearch, setGameSearch] = useState("");
+  const [gamePlatform, setGamePlatform] = useState("All");
+  const [tournamentSubTab, setTournamentSubTab] = useState<"upcoming" | "my" | "leaderboard">("upcoming");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // Load games and leaderboard
+  useEffect(() => {
+    void listGames(true).then(setGames).catch(() => setGames([]));
+    void listLeaderboard().then(setLeaderboard).catch(() => setLeaderboard([]));
+  }, []);
 
   async function reload() {
     try {
@@ -798,64 +843,698 @@ function DashboardPage() {
       </div>
     );
 
+  // Filtered bookings based on sub-tab
+  const filteredBookings = (bookings ?? []).filter((b) => {
+    if (bookingFilter === "upcoming") {
+      return ["awaiting_payment", "pending", "confirmed"].includes(b.status);
+    }
+    if (bookingFilter === "completed") {
+      return b.status === "completed";
+    }
+    if (bookingFilter === "cancelled") {
+      return ["cancelled", "rejected"].includes(b.status);
+    }
+    return true;
+  });
+
+  const renderBookingsList = (list: Booking[]) =>
+    bookings === null ? (
+      <div className="flex justify-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    ) : list.length === 0 ? (
+      <div className="rounded-xl border border-border bg-card p-8 text-center">
+        <CalendarClock className="mx-auto h-10 w-10 text-primary" />
+        <h2 className="mt-4 font-display text-xl font-semibold">No bookings found</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {bookingFilter !== "all"
+            ? `No ${bookingFilter} bookings at this moment.`
+            : "Your reserved setups will appear here."}
+        </p>
+        <button
+          onClick={() => {
+            setSelectedBookPlatform("pc");
+            setTab("book");
+          }}
+          className="mt-6 inline-block rounded-md bg-primary px-6 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground"
+        >
+          Book a station
+        </button>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {list.map((b) => (
+          <BookingCard
+            key={b.id}
+            b={b}
+            onCancelled={(id) =>
+              setBookings((prev) =>
+                prev ? prev.map((x) => (x.id === id ? { ...x, status: "cancelled" } : x)) : prev,
+              )
+            }
+            onReload={reload}
+          />
+        ))}
+      </div>
+    );
+
+  const filteredGames = games.filter((g) => {
+    const matchesSearch =
+      !gameSearch ||
+      g.title.toLowerCase().includes(gameSearch.toLowerCase()) ||
+      g.tags.some((t) => t.toLowerCase().includes(gameSearch.toLowerCase()));
+    const matchesPlatform =
+      gamePlatform === "All" ||
+      g.platform.includes(gamePlatform) ||
+      g.tags.includes(gamePlatform);
+    return matchesSearch && matchesPlatform;
+  });
+
+  const upcomingBooking = (bookings ?? []).find((b) =>
+    ["awaiting_payment", "pending", "confirmed"].includes(b.status),
+  );
+
   let section: React.ReactNode = null;
-  if (tab === "home") {
+
+  if (tab === "dashboard") {
+    section = (
+      <div className="space-y-8">
+        {/* Welcome Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary uppercase tracking-wider">
+              <span className="aq-pulse-dot" />
+              <span>ALPHA ELITE MEMBER</span>
+            </div>
+            <h1 className="mt-2 font-display text-3xl sm:text-4xl font-black uppercase text-foreground">
+              WELCOME, {user.name || "GAMER"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Your battle stations, tournament matches, and reward perks in one place.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setSelectedBookPlatform("pc");
+                setTab("book");
+              }}
+              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
+            >
+              <Monitor className="h-4 w-4" /> Book Station
+            </button>
+            <button
+              onClick={() => setTab("food")}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-foreground hover:border-primary/50 transition"
+            >
+              <UtensilsCrossed className="h-4 w-4 text-primary" /> Order Café
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-xl border border-border bg-card/90 p-5 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">Active</span>
+            </div>
+            <div className="mt-3 font-display text-3xl font-black text-foreground">
+              {(bookings ?? []).filter((b) => ["pending", "confirmed", "awaiting_payment"].includes(b.status)).length}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-1">
+              Bookings
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/90 p-5 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <Gift className="h-5 w-5 text-amber-400" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">Balance</span>
+            </div>
+            <div className="mt-3 font-display text-3xl font-black text-foreground">
+              {user.rewardPoints ?? 0}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-1">
+              Reward Points
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/90 p-5 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <Trophy className="h-5 w-5 text-emerald-400" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400">Season</span>
+            </div>
+            <div className="mt-3 font-display text-3xl font-black text-foreground">
+              {myRegs.length}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-1">
+              Tournaments
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/90 p-5 backdrop-blur-md">
+            <div className="flex items-center justify-between">
+              <Gamepad2 className="h-5 w-5 text-sky-400" />
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-400">Catalogue</span>
+            </div>
+            <div className="mt-3 font-display text-3xl font-black text-foreground">
+              {games.length > 0 ? games.length : "50+"}
+            </div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-1">
+              Games Ready
+            </div>
+          </div>
+        </div>
+
+        {/* Next Session Reminder Card (if any upcoming) */}
+        {upcomingBooking ? (
+          <div className="rounded-2xl border border-primary/50 bg-gradient-to-r from-card via-card to-primary/10 p-6 card-glow">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-0.5 text-[11px] font-semibold text-primary uppercase">
+                  <span className="aq-pulse-dot" /> NEXT CONFIRMED SESSION
+                </span>
+                <h3 className="mt-2 font-display text-xl sm:text-2xl font-bold uppercase text-foreground">
+                  {upcomingBooking.platform === "pc" ? "Gaming PC Battlestation" : upcomingBooking.platform === "racing" ? "Direct-Drive Racing Sim" : "PlayStation 5 Lounge"} · {setupLabel(upcomingBooking)}
+                </h3>
+                <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                  Scheduled for <strong className="text-foreground">{upcomingBooking.date}</strong> at <strong className="text-foreground">{upcomingBooking.slot}</strong> ({upcomingBooking.durationLabel})
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${STATUS_STYLES[upcomingBooking.status]}`}>
+                  {STATUS_LABEL[upcomingBooking.status]}
+                </span>
+                <button
+                  onClick={() => setTab("bookings")}
+                  className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-2 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition"
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Gaming Zones Quick Booker */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl font-bold uppercase tracking-wide text-foreground">
+              Book A Gaming Zone
+            </h2>
+            <button
+              onClick={() => setTab("book")}
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              Full booking view <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* PC */}
+            <div className="rounded-xl border border-border bg-card/80 p-5 backdrop-blur-md flex flex-col justify-between hover:border-primary/40 transition">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Monitor className="h-5 w-5" />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-primary">₹70/hr</span>
+                </div>
+                <h3 className="mt-3 font-display font-bold uppercase text-foreground">PC ZONE</h3>
+                <p className="mt-1 text-xs text-muted-foreground">RTX 4070 Ti · 240Hz Fast IPS · Optical Mice</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedBookPlatform("pc");
+                  setTab("book");
+                }}
+                className="mt-4 w-full rounded-lg bg-primary/10 border border-primary/30 py-2 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary hover:text-primary-foreground transition"
+              >
+                Select PC Setup
+              </button>
+            </div>
+
+            {/* PS5 */}
+            <div className="rounded-xl border border-border bg-card/80 p-5 backdrop-blur-md flex flex-col justify-between hover:border-primary/40 transition">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Tv className="h-5 w-5" />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-primary">₹120/hr</span>
+                </div>
+                <h3 className="mt-3 font-display font-bold uppercase text-foreground">PS5 ZONE</h3>
+                <p className="mt-1 text-xs text-muted-foreground">65" 4K 120Hz OLED · 4 Controllers · Couch</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedBookPlatform("ps5");
+                  setTab("book");
+                }}
+                className="mt-4 w-full rounded-lg bg-primary/10 border border-primary/30 py-2 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary hover:text-primary-foreground transition"
+              >
+                Select PS5 Lounge
+              </button>
+            </div>
+
+            {/* Racing */}
+            <div className="rounded-xl border border-border bg-card/80 p-5 backdrop-blur-md flex flex-col justify-between hover:border-primary/40 transition">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+                    <Gauge className="h-5 w-5" />
+                  </div>
+                  <span className="font-mono text-xs font-bold text-amber-400">₹150/hr</span>
+                </div>
+                <h3 className="mt-3 font-display font-bold uppercase text-foreground">RACING ZONE</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Fanatec Direct Drive · Load Cell · Triple Screen</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedBookPlatform("racing");
+                  setTab("book");
+                }}
+                className="mt-4 w-full rounded-lg bg-amber-500/10 border border-amber-500/30 py-2 text-xs font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-500 hover:text-black transition"
+              >
+                Select Racing Rig
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Bookings Preview */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-xl font-bold uppercase tracking-wide text-foreground">
+              Recent Bookings
+            </h2>
+            <button
+              onClick={() => setTab("bookings")}
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              View all bookings <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {renderBookingsList((bookings ?? []).slice(0, 3))}
+        </div>
+      </div>
+    );
+  } else if (tab === "home") {
     section = (
       <LandingContent
         onBook={() => {
-          setShowBook(true);
-          setTab("bookings");
+          setSelectedBookPlatform("pc");
+          setTab("book");
         }}
         onFood={() => {
           setTab("food");
         }}
       />
     );
-  } else if (tab === "bookings") {
-    section = showBook ? (
-      <div>
-        <button
-          onClick={() => {
-            setShowBook(false);
-            void reload();
-          }}
-          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground transition hover:text-primary"
-        >
-          ← Back to my bookings
-        </button>
+  } else if (tab === "games") {
+    section = (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-foreground">
+              Browse Games
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Explore 50+ titles pre-installed across our PC, PS5, and Racing Simulator setups.
+            </p>
+          </div>
+          <button
+            onClick={() => setTab("book")}
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
+          >
+            <Monitor className="h-4 w-4" /> Book Station to Play
+          </button>
+        </div>
+
+        {/* Search & Platform Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={gameSearch}
+              onChange={(e) => setGameSearch(e.target.value)}
+              placeholder="Search games, genres, or tags…"
+              className="w-full rounded-xl border border-border bg-card/80 pl-10 pr-4 py-2.5 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {["All", "PC", "PS5", "Racing", "Competitive", "Casual"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setGamePlatform(p)}
+                className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+                  gamePlatform === p
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/40"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Games Grid */}
+        {filteredGames.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+            No games match your search or filter.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredGames.map((g) => (
+              <div
+                key={g.id || g.title}
+                className="flex flex-col justify-between rounded-xl border border-border bg-card/80 p-5 backdrop-blur-md transition hover:border-primary/40"
+              >
+                <div>
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-display text-lg font-bold text-foreground">{g.title}</h3>
+                    <div className="flex gap-1">
+                      {g.platform.map((p) => (
+                        <span
+                          key={p}
+                          className="rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary"
+                        >
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {g.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-md border border-border bg-card/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-emerald-400 flex items-center gap-1">
+                    <Check className="h-3 w-3" /> Pre-installed &amp; updated
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (g.platform.includes("PS5")) setSelectedBookPlatform("ps5");
+                      else if (g.platform.includes("Racing")) setSelectedBookPlatform("racing");
+                      else setSelectedBookPlatform("pc");
+                      setTab("book");
+                    }}
+                    className="text-xs font-bold text-primary hover:underline uppercase"
+                  >
+                    Play Now →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  } else if (tab === "book") {
+    section = (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-foreground">
+              Book A Station
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select platform, pick date and time slot, choose duration, and confirm your reservation.
+            </p>
+          </div>
+          <button
+            onClick={() => setTab("bookings")}
+            className="text-xs font-semibold text-muted-foreground hover:text-primary transition"
+          >
+            View Existing Bookings →
+          </button>
+        </div>
         <BookSetup
-          onBooked={() => void reload()}
-          onViewBookings={() => {
-            setShowBook(false);
+          defaultPlatform={selectedBookPlatform}
+          onBooked={() => {
             void reload();
+            setTab("bookings");
+          }}
+          onViewBookings={() => {
+            void reload();
+            setTab("bookings");
           }}
         />
       </div>
-    ) : (
-      <div>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">My bookings</h1>
+    );
+  } else if (tab === "bookings") {
+    section = (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-foreground">
+              My Bookings
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track your upcoming gaming sessions, completed sessions, and status.
+            </p>
+          </div>
           <button
-            onClick={() => setShowBook(true)}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground transition hover:opacity-90"
+            onClick={() => {
+              setSelectedBookPlatform("pc");
+              setTab("book");
+            }}
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90"
           >
-            <ArrowRight className="h-4 w-4" /> Book a setup
+            <Plus className="h-4 w-4" /> Book New Station
           </button>
         </div>
-        {bookingsList}
+
+        {/* Sub-filters matching wireframe */}
+        <div className="flex items-center gap-2 border-b border-border/80 pb-3">
+          {(["all", "upcoming", "completed", "cancelled"] as const).map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setBookingFilter(filter)}
+              className={`rounded-lg px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition ${
+                bookingFilter === filter
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "border border-border bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/40"
+              }`}
+            >
+              {filter}
+              <span className="ml-1.5 opacity-70">
+                (
+                {filter === "all"
+                  ? (bookings ?? []).length
+                  : filter === "upcoming"
+                  ? (bookings ?? []).filter((b) =>
+                      ["awaiting_payment", "pending", "confirmed"].includes(b.status),
+                    ).length
+                  : filter === "completed"
+                  ? (bookings ?? []).filter((b) => b.status === "completed").length
+                  : (bookings ?? []).filter((b) =>
+                      ["cancelled", "rejected"].includes(b.status),
+                    ).length}
+                )
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {renderBookingsList(filteredBookings)}
+      </div>
+    );
+  } else if (tab === "tournaments") {
+    section = (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase text-foreground">
+              Esports Tournaments
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Compete in official arena cups, register your squad, and track leaderboards.
+            </p>
+          </div>
+        </div>
+
+        {/* Sub-tabs: Upcoming, My Tournaments, Leaderboard */}
+        <div className="flex items-center gap-2 border-b border-border/80 pb-3">
+          {(
+            [
+              { key: "upcoming", label: "Upcoming Tournaments" },
+              { key: "my", label: `My Registrations (${myRegs.length})` },
+              { key: "leaderboard", label: "Season Leaderboard" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTournamentSubTab(t.key)}
+              className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                tournamentSubTab === t.key
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tournamentSubTab === "upcoming" && <TournamentsSection />}
+
+        {tournamentSubTab === "my" && (
+          <div className="space-y-4">
+            {myRegs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                You haven't registered for any tournaments yet.
+                <button
+                  onClick={() => setTournamentSubTab("upcoming")}
+                  className="mt-3 block mx-auto text-primary font-bold hover:underline"
+                >
+                  Browse upcoming tournaments →
+                </button>
+              </div>
+            ) : (
+              myRegs.map((reg) => {
+                const tournament = tournamentsMap[reg.tournamentId];
+                return (
+                  <div
+                    key={reg.id}
+                    className="rounded-xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase">
+                        <Check className="h-3 w-3" /> REGISTERED SQUAD
+                      </span>
+                      <h3 className="mt-2 font-display text-xl font-bold uppercase text-foreground">
+                        {tournament?.game ? `${tournament.game} - ${tournament.format}` : "Tournament"}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Team: <strong className="text-foreground">{reg.teamName}</strong> · Player:{" "}
+                        <strong className="text-foreground">{reg.playerName}</strong>
+                      </p>
+                      {tournament?.date && (
+                        <p className="text-xs text-primary mt-1">Date: {tournament.date}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      {tournament?.prize && (
+                        <div className="font-display font-bold text-primary text-lg">
+                          {tournament.prize}
+                        </div>
+                      )}
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        Registered on {new Date(reg.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {tournamentSubTab === "leaderboard" && (
+          <div className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-md">
+            <h3 className="font-display text-lg font-bold text-foreground mb-4">
+              Arena Season Standings
+            </h3>
+            {leaderboard.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Leaderboard updating soon.</p>
+            ) : (
+              <div className="divide-y divide-border">
+                {leaderboard.map((entry, idx) => (
+                  <div
+                    key={entry.id || entry.team}
+                    className="flex items-center justify-between py-3.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-display font-bold text-primary w-6 text-center">
+                        {String(entry.rank || idx + 1).padStart(2, "0")}
+                      </span>
+                      <span className="font-medium text-foreground">{entry.team}</span>
+                    </div>
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {entry.points.toLocaleString()} pts
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   } else if (tab === "food") {
     section = <FoodOrder />;
   } else if (tab === "rewards") {
     section = (
-      <div className="">
-        <SectionHeading title="Reward points" />
+      <div className="space-y-6">
+        <SectionHeading
+          title="Rewards & Membership"
+          subtitle="Earn points on every hourly session and food order. Redeem for free game time."
+        />
         <RewardsCard fallbackPoints={user.rewardPoints ?? 0} />
       </div>
     );
-  } else if (tab === "tournaments") {
-    section = <TournamentsSection />;
+  } else if (tab === "notifications") {
+    section = (
+      <div className="space-y-6 max-w-3xl">
+        <SectionHeading
+          title="Notification Center"
+          subtitle="Live status updates, booking confirmations, and arena announcements."
+        />
+        <div className="space-y-3">
+          {(bookings ?? []).slice(0, 5).map((b) => (
+            <div
+              key={`notif-${b.id}`}
+              className="flex items-start gap-3.5 rounded-xl border border-border bg-card/80 p-4 backdrop-blur-md"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Bell className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-bold text-foreground">
+                    Booking #{b.id.slice(0, 8)} Status: {STATUS_LABEL[b.status]}
+                  </h4>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {b.date}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Your reservation for {setupLabel(b)} at {b.slot} is currently {b.status}.
+                  Email alerts configured per arena settings.
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Welcome Alert */}
+          <div className="flex items-start gap-3.5 rounded-xl border border-border bg-card/80 p-4 backdrop-blur-md">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-bold text-foreground">Account Active &amp; Verified</h4>
+                <span className="font-mono text-[11px] text-muted-foreground">Online</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Your gamer profile is active with role <strong className="text-foreground uppercase">{user.role}</strong>.
+                Reward accrual is live at 10 pts per ₹100 spent.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   } else if (tab === "payment") {
     section = (
       <div>
@@ -863,31 +1542,39 @@ function DashboardPage() {
           title="Payments"
           subtitle="Complete UPI payment for pending bookings — staff confirms your slot."
         />
-        {bookingsList}
+        {renderBookingsList(bookings ?? [])}
       </div>
     );
   } else if (tab === "profile") {
     section = (
-      <div className="max-w-xl">
-        <SectionHeading title="Profile" />
+      <div className="max-w-xl space-y-6">
+        <SectionHeading title="Gamer Profile" subtitle="Manage your AlphaQ Arena credentials and perks." />
         <div className="space-y-3 rounded-xl border border-border bg-card p-6">
           <Row label="Name" value={user.name || "—"} />
           <Row label="Phone" value={phone ? `+${phone}` : "—"} />
           <Row label="Role" value={user.role} />
           <Row label="Reward points" value={String(user.rewardPoints ?? 0)} />
+          <Row label="Membership Tier" value="Alpha Elite Gamer" />
+          <Row label="Registered Tournaments" value={String(myRegs.length)} />
         </div>
       </div>
     );
   } else if (tab === "settings") {
     section = (
-      <div className="max-w-xl">
-        <SectionHeading title="Settings" />
+      <div className="max-w-xl space-y-6">
+        <SectionHeading title="Settings" subtitle="System preferences and account controls." />
         <div className="space-y-4 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           <p>
-            Signed in as <span className="text-foreground">{user.name}</span> (
+            Signed in as <span className="text-foreground font-semibold">{user.name}</span> (
             {phone ? `+${phone}` : "—"}).
           </p>
-          <p>To change your phone number or remove your account, please contact AlphaQ staff.</p>
+          <div className="border-t border-border pt-3 space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-foreground">Notifications</h4>
+            <p className="text-xs">
+              Booking notifications and OTP delivery channels are managed dynamically by arena staff via the Admin portal.
+            </p>
+          </div>
+          <p className="text-xs pt-2">To change your phone number or remove your account, please contact AlphaQ staff.</p>
         </div>
       </div>
     );

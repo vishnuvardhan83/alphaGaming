@@ -20,6 +20,10 @@ import {
   CheckCircle2,
   Phone,
   MessageCircle,
+  Gamepad2,
+  Gauge,
+  Trophy,
+  Zap,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -173,10 +177,16 @@ function useAdminSettings() {
           { label: "Per hour", price: Number(s.pcPrice1h) || p.tiers[1]!.price, unit: "hour" },
           { label: "Full-day pass", price: Number(s.pcPriceDay) || p.tiers[2]!.price, unit: "day" },
         ]
-        : [
+        : p.key === "ps5"
+        ? [
           { label: "30 minutes", price: Number(s.ps5Price30m) || p.tiers[0]!.price, unit: "30 min" },
           { label: "Per hour", price: Number(s.ps5Price1h) || p.tiers[1]!.price, unit: "hour" },
           { label: "Full-day pass", price: Number(s.ps5PriceDay) || p.tiers[2]!.price, unit: "day" },
+        ]
+        : [
+          { label: "30 minutes", price: p.tiers[0]!.price, unit: "30 min" },
+          { label: "Per hour", price: p.tiers[1]!.price, unit: "hour" },
+          { label: "Full-day pass", price: p.tiers[2]!.price, unit: "day" },
         ],
   }));
 
@@ -351,64 +361,261 @@ export function LandingContent({
 
         {/* Hero Content */}
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6">
-          <div className="max-w-2xl py-12 lg:py-20">
-            {/* Eyebrow */}
-            <p className="font-display text-xs sm:text-sm font-semibold uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-              <span className="text-primary font-bold">&#123;</span> Play beyond limits <span className="text-primary font-bold">&#125;</span>
-              <ArrowRight className="h-3.5 w-3.5 text-primary" />
-            </p>
+          <div className="max-w-3xl py-12 lg:py-20">
+            {/* Wireframe Eyebrow */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+              <span className="aq-pulse-dot" />
+              <span>ENTER THE ULTIMATE GAMING ARENA</span>
+            </div>
 
-            {/* Display Heading */}
-            <h1 className="mt-4 font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold uppercase tracking-tight text-foreground leading-[0.92]">
-              Indore's
+            {/* Display Heading - LEVEL UP YOUR GAME */}
+            <h1 className="mt-5 font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-black uppercase tracking-tight text-foreground leading-[0.95]">
+              LEVEL UP
               <br />
-              next-level
-              <br />
-              <span className="text-primary text-glow">gaming café</span>
+              <span className="text-primary text-glow">YOUR GAME</span>
             </h1>
 
             {/* Subtitle */}
-            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-muted-foreground">
-              High-end PC &amp; PS5 setups, low-ping internet and a clean, family-friendly arena for every gamer. Book ahead, order food to your seat, and compete.
+            <p className="mt-6 max-w-xl font-sans text-base sm:text-lg leading-relaxed text-muted-foreground">
+              Experience Indore's premier esports lounge equipped with ultra-fast 240Hz esports PCs, PlayStation 5 consoles, and direct-drive racing cockpits with ultra-low ping gigabit fiber.
             </p>
 
-            {/* Buttons */}
+            {/* Buttons matching wireframe */}
             <div className="mt-8 flex flex-wrap gap-4">
-              <BookLink className="flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-[0_10px_28px_var(--primary-shadow-glow)] transition hover:opacity-90 hover:scale-105 active:scale-95">
-                Book a setup now <ArrowRight className="h-4 w-4" />
+              <BookLink className="flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-[0_10px_28px_var(--primary-shadow-glow)] transition hover:opacity-90 hover:scale-105 active:scale-95">
+                [ BOOK A STATION ] <ArrowRight className="h-4 w-4" />
               </BookLink>
               <a
-                href="#battlestation"
-                className="rounded-full border border-border bg-card/60 px-7 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-foreground transition hover:border-primary/60 hover:text-primary hover:scale-105 active:scale-95"
+                href="#tournaments"
+                className="rounded-full border border-border bg-card/70 px-8 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-foreground transition hover:border-primary/60 hover:text-primary hover:scale-105 active:scale-95"
               >
-                Explore battlestation
+                [ VIEW TOURNAMENTS ]
               </a>
             </div>
 
-            {/* Availability Badges */}
-            <div className="mt-10 flex flex-wrap items-center gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                <span className="aq-pulse-dot" />
-                {avail.pc}/{avail.totalPc} PCS OPEN
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                <span className="aq-pulse-dot" />
-                {avail.ps5}/{avail.totalPs5} PS5S OPEN
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                OPEN UNTIL 8 PM
-              </span>
+            {/* Stat Counters matching wireframe: 🟢 20+ PCs | 🟢 50+ Games | 🟢 10+ Tournaments */}
+            <div className="mt-10 grid grid-cols-3 max-w-lg gap-4 rounded-2xl border border-border bg-card/60 p-4 backdrop-blur-md">
+              <div className="flex flex-col items-center justify-center border-r border-border/60 pr-2 text-center last:border-0">
+                <div className="flex items-center gap-1.5 font-display text-2xl font-black text-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#25D366]" />
+                  <span>20+</span>
+                </div>
+                <div className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  PCs
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center border-r border-border/60 px-2 text-center last:border-0">
+                <div className="flex items-center gap-1.5 font-display text-2xl font-black text-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#25D366]" />
+                  <span>50+</span>
+                </div>
+                <div className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Games
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center pl-2 text-center">
+                <div className="flex items-center gap-1.5 font-display text-2xl font-black text-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#25D366]" />
+                  <span>10+</span>
+                </div>
+                <div className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Tournaments
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Hero Bottom Footer row */}
           <div className="flex items-center justify-between border-t border-border pt-6 pb-4 text-xs text-muted-foreground">
-            <a href="#battlestation" className="inline-flex items-center gap-1.5 hover:text-foreground transition">
-              Scroll for more <ArrowDown className="h-3.5 w-3.5" />
+            <a href="#zones" className="inline-flex items-center gap-1.5 hover:text-foreground transition">
+              Explore Gaming Zones <ArrowDown className="h-3.5 w-3.5 text-primary" />
             </a>
             <span className="font-display font-semibold uppercase tracking-widest text-muted-foreground">
-              EST. {BRAND.est}
+              EST. {BRAND.est} · INDORE
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2 · GAMING ZONES (Wireframe Core Section) */}
+      <section id="zones" className="scroll-mt-20 border-t border-border py-20 sm:py-24 bg-card/20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.28em] text-primary flex items-center justify-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> GAMING ZONES <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            </p>
+            <h2 className="mt-3 font-display text-4xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight text-foreground">
+              CHOOSE YOUR BATTLEGROUND
+            </h2>
+            <p className="mt-3 mx-auto max-w-xl text-sm sm:text-base text-muted-foreground">
+              Engineered for uncompromising competitive performance and immersive entertainment. Pick your zone and claim your seat.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3 max-w-6xl mx-auto">
+            {/* PC ZONE */}
+            <div className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-2 hover:border-primary/60 hover:shadow-[0_12px_40px_rgba(0,168,255,0.15)]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                    <Monitor className="h-6 w-6" />
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[11px] font-semibold text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    20 PCS
+                  </span>
+                </div>
+
+                <h3 className="mt-5 font-display text-2xl font-bold uppercase tracking-wide text-foreground">
+                  PC ZONE
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ultra-competitive esports battlestations
+                </p>
+
+                <div className="mt-5 space-y-2.5 text-xs text-muted-foreground border-y border-border/60 py-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Graphics</span>
+                    <span className="font-mono text-foreground font-semibold">RTX 4070 Ti 12GB</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Display</span>
+                    <span className="font-mono text-foreground font-semibold">240Hz 0.5ms Fast IPS</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Peripherals</span>
+                    <span className="font-mono text-foreground font-semibold">Optical Mechanical + 8K Mouse</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Network</span>
+                    <span className="font-mono text-emerald-400 font-semibold">&lt;5ms Low Ping Fiber</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Rate</span>
+                  <div className="font-display text-2xl font-black text-primary">
+                    ₹70 <span className="text-xs font-normal text-muted-foreground">/ hr</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-2">
+                <BookLink className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90 active:scale-98">
+                  BOOK NOW <ArrowRight className="h-4 w-4" />
+                </BookLink>
+              </div>
+            </div>
+
+            {/* PS5 ZONE */}
+            <div className="group relative flex flex-col justify-between rounded-2xl border border-primary/40 bg-card/90 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-2 hover:border-primary hover:shadow-[0_12px_40px_rgba(30,224,122,0.2)] card-glow">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+                    <Tv className="h-6 w-6" />
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 font-mono text-[11px] font-semibold text-primary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    6 CONSOLES
+                  </span>
+                </div>
+
+                <h3 className="mt-5 font-display text-2xl font-bold uppercase tracking-wide text-foreground">
+                  PS5 ZONE
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Living-room style 4K lounge with plush couches
+                </p>
+
+                <div className="mt-5 space-y-2.5 text-xs text-muted-foreground border-y border-border/60 py-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Console</span>
+                    <span className="font-mono text-foreground font-semibold">PlayStation 5 Disc</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Screen</span>
+                    <span className="font-mono text-foreground font-semibold">65" 4K 120Hz OLED HDR</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Controllers</span>
+                    <span className="font-mono text-foreground font-semibold">Up to 4 DualSense / Rig</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Group</span>
+                    <span className="font-mono text-primary font-semibold">1-4 Players Same Flat Rate</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Rate</span>
+                  <div className="font-display text-2xl font-black text-primary">
+                    ₹120 <span className="text-xs font-normal text-muted-foreground">/ hr</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-2">
+                <BookLink className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90 active:scale-98">
+                  BOOK NOW <ArrowRight className="h-4 w-4" />
+                </BookLink>
+              </div>
+            </div>
+
+            {/* RACING ZONE */}
+            <div className="group relative flex flex-col justify-between rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-md transition-all duration-300 hover:-translate-y-2 hover:border-primary/60 hover:shadow-[0_12px_40px_rgba(255,68,0,0.15)]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <Gauge className="h-6 w-6" />
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-mono text-[11px] font-semibold text-amber-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    2 SIM RIGS
+                  </span>
+                </div>
+
+                <h3 className="mt-5 font-display text-2xl font-bold uppercase tracking-wide text-foreground">
+                  RACING ZONE
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Direct-drive motion &amp; force feedback simulator
+                </p>
+
+                <div className="mt-5 space-y-2.5 text-xs text-muted-foreground border-y border-border/60 py-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Wheelbase</span>
+                    <span className="font-mono text-foreground font-semibold">Fanatec Direct Drive 8Nm</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Pedals</span>
+                    <span className="font-mono text-foreground font-semibold">Load-Cell Hydraulic Feel</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Rig Cockpit</span>
+                    <span className="font-mono text-foreground font-semibold">Sparco Bucket Seat</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground/80">Displays</span>
+                    <span className="font-mono text-foreground font-semibold">Triple Curved Ultrawide</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-baseline justify-between">
+                  <span className="text-xs text-muted-foreground">Rate</span>
+                  <div className="font-display text-2xl font-black text-primary">
+                    ₹150 <span className="text-xs font-normal text-muted-foreground">/ hr</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-2">
+                <BookLink className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-display text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_20px_var(--primary-shadow-glow)] transition hover:opacity-90 active:scale-98">
+                  BOOK NOW <ArrowRight className="h-4 w-4" />
+                </BookLink>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -471,20 +678,26 @@ export function LandingContent({
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 max-w-5xl mx-auto">
+          <div className="grid gap-6 md:grid-cols-3 max-w-6xl mx-auto">
             {adminSettings.pricing.map((p) => (
               <div
                 key={p.key}
-                className={`rounded-2xl border bg-card/90 p-8 backdrop-blur-md transition hover:-translate-y-1 ${p.featured ? "border-primary/50 card-glow" : "border-border"
+                className={`rounded-2xl border bg-card/90 p-6 sm:p-8 backdrop-blur-md transition hover:-translate-y-1 ${p.featured ? "border-primary/50 card-glow" : "border-border"
                   }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
-                      {p.key === "pc" ? <Monitor className="h-6 w-6" /> : <Tv className="h-6 w-6" />}
+                      {p.key === "pc" ? (
+                        <Monitor className="h-6 w-6" />
+                      ) : p.key === "racing" ? (
+                        <Gauge className="h-6 w-6 text-amber-400" />
+                      ) : (
+                        <Tv className="h-6 w-6" />
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-display text-2xl font-bold text-foreground">{p.name}</h3>
+                      <h3 className="font-display text-xl sm:text-2xl font-bold text-foreground">{p.name}</h3>
                       <p className="text-xs text-muted-foreground">{p.tagline}</p>
                     </div>
                   </div>
@@ -582,6 +795,33 @@ export function LandingContent({
 
       {/* 5 · GAMES */}
       <section id="games" className="scroll-mt-20 border-t border-border py-20 sm:py-24">
+        {/* Wireframe Ticker Bar */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 mb-12">
+          <div className="rounded-2xl border border-border bg-card/90 p-4 sm:p-5 backdrop-blur-md overflow-hidden relative shadow-inner">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-primary shrink-0">
+                <Gamepad2 className="h-4 w-4" />
+                <span>TOP PLAYED TITLES</span>
+              </div>
+              <div className="flex items-center gap-3 font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-foreground/90 overflow-x-auto py-1 scrollbar-none">
+                <span className="text-primary hover:text-primary transition cursor-pointer">VALORANT</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">CS2</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">GTA V</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">FC 26</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">TEKKEN 8</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">FORZA HORIZON 5</span>
+                <span className="text-muted-foreground/40">|</span>
+                <span className="hover:text-primary transition cursor-pointer">APEX LEGENDS</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
@@ -589,7 +829,7 @@ export function LandingContent({
                 Ready to play
               </p>
               <h2 className="mt-2 font-display text-4xl sm:text-5xl font-bold uppercase tracking-tight text-foreground">
-                The library
+                GAMES LIBRARY
               </h2>
             </div>
             <div className="flex flex-wrap gap-2">

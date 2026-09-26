@@ -20,7 +20,7 @@ export interface PriceTier {
 }
 
 export interface PlatformPricing {
-  key: "pc" | "ps5";
+  key: "pc" | "ps5" | "racing";
   name: string;
   tagline: string;
   capacity: string;
@@ -32,9 +32,10 @@ export interface PlatformPricing {
 export const PRICING: PlatformPricing[] = [
   {
     key: "pc",
-    name: "Gaming PC",
+    name: "Gaming PC Zone",
     tagline: "High-refresh esports rigs · one gamer per PC",
-    capacity: "10 setups",
+    capacity: "20 setups",
+    featured: true,
     tiers: [
       { label: "30 minutes", price: 50, unit: "30 min" },
       { label: "Per hour", price: 100, unit: "hour" },
@@ -44,16 +45,27 @@ export const PRICING: PlatformPricing[] = [
   },
   {
     key: "ps5",
-    name: "PlayStation 5",
+    name: "PlayStation 5 Zone",
     tagline: "Big-TV couch lounge · up to 4 players per console",
-    capacity: "3 setups",
-    featured: true,
+    capacity: "6 setups",
     tiers: [
       { label: "30 minutes", price: 60, unit: "30 min" },
       { label: "Per hour", price: 120, unit: "hour" },
       { label: "Full-day pass", price: 600, unit: "day" },
     ],
     note: "Price is per console and unchanged for 1–4 players.",
+  },
+  {
+    key: "racing",
+    name: "Racing Sim Zone",
+    tagline: "Pro Direct-Drive Cockpit · Force feedback & load-cell pedals",
+    capacity: "2 rigs",
+    tiers: [
+      { label: "30 minutes", price: 80, unit: "30 min" },
+      { label: "Per hour", price: 150, unit: "hour" },
+      { label: "Full-day pass", price: 750, unit: "day" },
+    ],
+    note: "Fanatec direct drive wheel, triple curved displays, haptic pedals.",
   },
 ];
 

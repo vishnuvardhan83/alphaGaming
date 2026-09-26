@@ -1,15 +1,15 @@
 // AlphaQ Gaming — Booking Notification Service
-// Sends email alert to configured ADMIN_EMAIL asynchronously after booking commits.
+// Triggers the Section 25.9 Notification Decision Flow asynchronously after a booking commits.
 
-const { sendBookingAdminNotification } = require("./email/emailService");
+const { handleBookingCreated } = require("./notifications/notificationService");
 
 async function notifyAdminNewBooking({ booking, user }) {
   try {
-    await sendBookingAdminNotification({ booking, user });
+    await handleBookingCreated({ booking, user });
   } catch (err) {
-    // Log error cleanly: booking remains 100% successful even if email provider is temporarily unavailable
+    // Log error cleanly: booking remains 100% successful even if notification provider is temporarily unavailable
     console.error(
-      `[Admin Booking Notification Error] Failed to send email for booking #${booking.id}:`,
+      `[Booking Notification Flow Error] Failed processing notifications for booking #${booking?.id}:`,
       err.message,
     );
   }

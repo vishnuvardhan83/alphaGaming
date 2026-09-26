@@ -564,3 +564,89 @@ export const setRailwayVariable = (name: string, value: string) =>
 export const deleteRailwayVariable = (name: string) =>
   apiDelete(`/admin/railway/variables/${encodeURIComponent(name)}`);
 
+/* --------------------------------------------------- notification settings -- */
+
+export interface NotificationSettings {
+  email_enabled: boolean;
+  sms_enabled: boolean;
+  customer_email_otp_enabled: boolean;
+  customer_sms_otp_enabled: boolean;
+  booking_email_enabled: boolean;
+  booking_sms_enabled: boolean;
+  admin_booking_email_enabled: boolean;
+  admin_booking_sms_enabled: boolean;
+  admin_email: string;
+  admin_phone: string;
+  email_provider: string;
+  sms_provider: string;
+  otp_length: number;
+  otp_expiry_minutes: number;
+  otp_max_attempts: number;
+  resend_cooldown_seconds: number;
+}
+
+export interface ProviderSecretStatus {
+  email: {
+    smtp: {
+      configured: boolean;
+      masked: boolean;
+      host: string;
+      port: number;
+      user: string;
+      secretMasked: string;
+    };
+    emailjs: {
+      configured: boolean;
+      masked: boolean;
+      serviceId: string;
+      secretMasked: string;
+    };
+  };
+  sms: {
+    msg91: {
+      configured: boolean;
+      masked: boolean;
+      senderId: string;
+      secretMasked: string;
+    };
+    twilio: {
+      configured: boolean;
+      masked: boolean;
+      fromNumber: string;
+      secretMasked: string;
+    };
+    sns: {
+      configured: boolean;
+      masked: boolean;
+      secretMasked: string;
+    };
+  };
+  renderConfigNotice: string;
+}
+
+export interface NotificationSettingsResponse {
+  settings: NotificationSettings;
+  providerStatus: ProviderSecretStatus;
+}
+
+export interface TestNotificationResult {
+  success: boolean;
+  message: string;
+  provider: string;
+  recipient: string;
+  mocked?: boolean;
+  messageId?: string;
+}
+
+export const getNotificationSettings = () =>
+  apiGet<NotificationSettingsResponse>("/admin/notifications/settings");
+
+export const updateNotificationSettings = (data: Partial<NotificationSettings>) =>
+  apiPut<NotificationSettingsResponse>("/admin/notifications/settings", data);
+
+export const sendTestEmail = (to?: string) =>
+  apiPost<TestNotificationResult>("/admin/notifications/test-email", { to });
+
+export const sendTestSms = (to?: string) =>
+  apiPost<TestNotificationResult>("/admin/notifications/test-sms", { to });
+

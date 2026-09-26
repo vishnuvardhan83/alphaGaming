@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Monitor, Tv, Users, Loader2, CheckCircle2, QrCode, Copy } from "lucide-react";
+import { Monitor, Tv, Users, Loader2, CheckCircle2, QrCode, Copy, Compass } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useAuth } from "@/lib/auth";
@@ -26,9 +26,11 @@ function nextDays(n: number): { iso: string; label: string }[] {
 type Step = "configure" | "pay" | "done";
 
 export function BookSetup({
+  defaultPlatform = "pc",
   onBooked,
   onViewBookings,
 }: {
+  defaultPlatform?: "pc" | "ps5" | "racing";
   onBooked?: () => void;
   onViewBookings?: () => void;
 }) {
@@ -43,7 +45,12 @@ export function BookSetup({
       navigate({ to: "/dashboard" });
     }
   }
-  const [platform, setPlatform] = useState<"pc" | "ps5">("pc");
+  const [platform, setPlatform] = useState<"pc" | "ps5" | "racing">(defaultPlatform);
+  useEffect(() => {
+    if (defaultPlatform) {
+      setPlatform(defaultPlatform);
+    }
+  }, [defaultPlatform]);
   const [date, setDate] = useState(todayISO());
   const [slot, setSlot] = useState<string | null>(null);
   const [customMode, setCustomMode] = useState(false);
@@ -55,7 +62,7 @@ export function BookSetup({
   const [settings, setSettings] = useState<Settings | null>(null);
   const [qr, setQr] = useState<string>("");
   const [upiRef, setUpiRef] = useState("");
-  const [counts, setCounts] = useState({ pc: 10, ps5: 3 });
+  const [counts, setCounts] = useState<{ pc: number; ps5: number; racing?: number }>({ pc: 20, ps5: 6, racing: 2 });
 
   const days = useMemo(() => nextDays(7), []);
   const pricing = PRICING.find((p) => p.key === platform)!;
@@ -257,9 +264,9 @@ export function BookSetup({
       <div className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-6 sm:p-8">
         {/* Platform */}
         <h3 className="font-display text-sm font-semibold uppercase tracking-widest text-primary">
-          1 · Choose platform
+          1 · Choose platform / zone
         </h3>
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PRICING.map((p) => (
             <button
               key={p.key}
@@ -267,16 +274,22 @@ export function BookSetup({
                 setPlatform(p.key);
                 setTierIdx(1);
               }}
-              className={`flex items-center gap-3 rounded-lg border p-4 text-left transition ${
+              className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${
                 platform === p.key
                   ? "border-primary bg-primary/10 card-glow"
-                  : "border-border hover:border-primary/40"
+                  : "border-border hover:border-primary/40 bg-card/60"
               }`}
             >
-              {p.key === "pc" ? <Monitor className="h-6 w-6 text-primary" /> : <Tv className="h-6 w-6 text-primary" />}
+              {p.key === "pc" ? (
+                <Monitor className="h-6 w-6 text-primary shrink-0" />
+              ) : p.key === "ps5" ? (
+                <Tv className="h-6 w-6 text-primary shrink-0" />
+              ) : (
+                <Compass className="h-6 w-6 text-primary shrink-0" />
+              )}
               <span>
-                <span className="block font-display font-semibold">{p.name}</span>
-                <span className="block text-xs text-muted-foreground">{counts[p.key]} setups</span>
+                <span className="block font-display font-semibold text-sm">{p.name}</span>
+                <span className="block text-xs text-muted-foreground">{counts[p.key] ?? p.capacity}</span>
               </span>
             </button>
           ))}

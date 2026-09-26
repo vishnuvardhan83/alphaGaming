@@ -1,38 +1,19 @@
 // AlphaQ Gaming — Reusable Email Service
-// Sends OTP emails through EmailJS HTTPS API.
-// Login OTP and Reset Password OTP use the same EmailJS template.
+// Bridges email template generation with the unified NotificationService provider abstraction.
 
 const verifyEmailTemplate = require("./templates/verifyEmail");
 const forgotPasswordTemplate = require("./templates/forgotPassword");
 const bookingNotificationTemplate = require("./templates/bookingNotification");
 const welcomeUserTemplate = require("./templates/welcomeUser");
-
-const EMAILJS_API_URL = "https://api.emailjs.com/api/v1.0/email/send";
-
-function getEmailJsConfig() {
-  const serviceId = (process.env.EMAILJS_SERVICE_ID || "").trim();
-  const templateId = (process.env.EMAILJS_TEMPLATE_ID || "").trim();
-  const publicKey = (process.env.EMAILJS_PUBLIC_KEY || "").trim();
-  const privateKey = (process.env.EMAILJS_PRIVATE_KEY || "").trim();
-
-  if (!serviceId || !templateId || !publicKey || !privateKey) {
-    return null;
-  }
-
-  return {
-    serviceId,
-    templateId,
-    publicKey,
-    privateKey,
-  };
-}
+const { getNotificationSettings } = require("../notifications/notificationSettings");
+const { sendEmail: dispatchEmail } = require("../notifications/notificationService");
 
 function getAdminEmail() {
-  return process.env.ADMIN_EMAIL || "";
+  return process.env.ADMIN_EMAIL || "admin@example.com";
 }
 
 /**
- * Sends an email through EmailJS.
+ * Sends an email through the active provider in NotificationService.
  */
 async function sendEmail({
   to,
@@ -44,74 +25,20 @@ async function sendEmail({
   message = "",
   passcode = "",
   time = "",
+  force = false,
 }) {
-  const config = getEmailJsConfig();
-
-  if (!config) {
-    console.log("\n=======================================================");
-    console.log("[EMAIL SERVICE - DEV/MOCK MODE (EmailJS not configured)]");
-    console.log(`To:      ${to}`);
-    console.log(`Subject: ${subject}`);
-    console.log("-------------------------------------------------------");
-    console.log(text || html);
-    console.log("=======================================================\n");
-
-    return {
-      messageId: `mock-${Date.now()}`,
-      mocked: true,
-    };
-  }
-
-  try {
-    const response = await fetch(EMAILJS_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        service_id: config.serviceId,
-        template_id: config.templateId,
-        user_id: config.publicKey,
-        accessToken: config.privateKey,
-
-
-        template_params: {
-          to_email: to,
-          name,
-          title,
-          message,
-          passcode,
-          time,
-        },
-      }),
-    });
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      throw new Error(
-        `EmailJS request failed (${response.status}): ${responseText}`
-      );
-    }
-
-    console.log(`[EmailJS] Sent to ${to}`);
-
-    return {
-      messageId: `emailjs-${Date.now()}`,
-      mocked: false,
-    };
-  } catch (err) {
-    console.error(
-      `[EmailJS Error] Failed sending to ${to}:`,
-      err.message
-    );
-
-    throw err;
-  }
+  return dispatchEmail({
+    to,
+    subject,
+    text,
+    html,
+    force,
+  });
 }
 
 /**
  * User registration email verification with OTP.
+ * Gated by customer_email_otp_enabled in admin settings.
  */
 async function sendVerificationEmail({
   email,
@@ -119,6 +46,16 @@ async function sendVerificationEmail({
   otp,
   expiryMinutes = 5,
 }) {
+  const settings = await getNotificationSettings();
+  if (!settings.email_enabled || !settings.customer_email_otp_enabled) {
+    console.log(`[Email Service] Customer Email OTP is disabled in admin settings. Skipping verification email to ${email}.`);
+    return {
+      messageId: `skipped-${Date.now()}`,
+      mocked: true,
+      skipped: true,
+    };
+  }
+
   const tpl = verifyEmailTemplate({
     name,
     otp,
@@ -130,11 +67,9 @@ async function sendVerificationEmail({
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
-
     name,
     title: "Verify your account",
-    message:
-      "Use the verification code below to securely continue with your AlphaQ Gaming account.",
+    message: "Use the verification code below to securely continue with your AlphaQ Gaming account.",
     passcode: otp,
     time: `${expiryMinutes} minutes`,
   });
@@ -142,6 +77,7 @@ async function sendVerificationEmail({
 
 /**
  * Forgot password verification with OTP.
+ * Gated by customer_email_otp_enabled in admin settings.
  */
 async function sendForgotPasswordEmail({
   email,
@@ -149,6 +85,16 @@ async function sendForgotPasswordEmail({
   otp,
   expiryMinutes = 5,
 }) {
+  const settings = await getNotificationSettings();
+  if (!settings.email_enabled || !settings.customer_email_otp_enabled) {
+    console.log(`[Email Service] Customer Email OTP is disabled in admin settings. Skipping reset password email to ${email}.`);
+    return {
+      messageId: `skipped-${Date.now()}`,
+      mocked: true,
+      skipped: true,
+    };
+  }
+
   const tpl = forgotPasswordTemplate({
     name,
     otp,
@@ -160,11 +106,9 @@ async function sendForgotPasswordEmail({
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
-
     name,
     title: "Reset your password",
-    message:
-      "Use the verification code below to reset your AlphaQ Gaming password.",
+    message: "Use the verification code below to reset your AlphaQ Gaming password.",
     passcode: otp,
     time: `${expiryMinutes} minutes`,
   });
@@ -172,12 +116,19 @@ async function sendForgotPasswordEmail({
 
 /**
  * Admin notification when a booking is created.
- *
- * This remains available but is not using the OTP template.
- * We will handle the booking template separately.
  */
 async function sendBookingAdminNotification({ booking, user }) {
-  const adminEmail = getAdminEmail();
+  const settings = await getNotificationSettings();
+  const adminEmail = settings.admin_email || getAdminEmail();
+
+  if (!settings.email_enabled || !settings.admin_booking_email_enabled) {
+    console.log(`[Email Service] Admin booking email is disabled in settings. Skipping alert for booking #${booking?.id}.`);
+    return {
+      messageId: `skipped-${Date.now()}`,
+      mocked: true,
+      skipped: true,
+    };
+  }
 
   const tpl = bookingNotificationTemplate({
     booking,
@@ -189,7 +140,6 @@ async function sendBookingAdminNotification({ booking, user }) {
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
-
     name: "Admin",
     title: tpl.subject,
     message: tpl.text,
@@ -197,8 +147,7 @@ async function sendBookingAdminNotification({ booking, user }) {
 }
 
 /**
- * Admin creates a new user:
- * sends welcome email with verification OTP.
+ * Admin creates a new user: sends welcome email with verification OTP.
  */
 async function sendWelcomeUserEmail({
   email,
@@ -207,6 +156,16 @@ async function sendWelcomeUserEmail({
   role = "customer",
   expiryMinutes = 5,
 }) {
+  const settings = await getNotificationSettings();
+  if (!settings.email_enabled) {
+    console.log(`[Email Service] Email is disabled in admin settings. Skipping welcome email to ${email}.`);
+    return {
+      messageId: `skipped-${Date.now()}`,
+      mocked: true,
+      skipped: true,
+    };
+  }
+
   const tpl = welcomeUserTemplate({
     name,
     otp,
@@ -219,11 +178,9 @@ async function sendWelcomeUserEmail({
     subject: tpl.subject,
     text: tpl.text,
     html: tpl.html,
-
     name,
     title: "Verify your account",
-    message:
-      "Use the verification code below to securely activate your AlphaQ Gaming account.",
+    message: "Use the verification code below to securely activate your AlphaQ Gaming account.",
     passcode: otp,
     time: `${expiryMinutes} minutes`,
   });

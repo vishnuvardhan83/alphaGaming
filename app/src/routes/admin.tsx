@@ -39,6 +39,7 @@ import {
   KeyRound,
   Database,
   Sliders,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/modal";
@@ -52,6 +53,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { CryptoTab } from "@/components/admin/crypto-tab";
 import { DatabaseTab } from "@/components/admin/database-tab";
 import { RailwayTab } from "@/components/admin/railway-tab";
+import { NotificationsTab } from "@/components/admin/notifications-tab";
+import { TodayLiveArenaTab } from "@/components/admin/today-tab";
 import {
   listAllBookings,
   approveBooking,
@@ -130,6 +133,7 @@ export const Route = createFileRoute("/admin")({
 /* ---------------------------------------------------------------- shared -- */
 
 type TabKey =
+  | "today"
   | "bookings"
   | "games"
   | "food"
@@ -142,18 +146,21 @@ type TabKey =
   | "users"
   | "crypto"
   | "database"
-  | "railway";
+  | "railway"
+  | "notifications";
 
 const TABS: { key: TabKey; label: string; icon: typeof Monitor }[] = [
+  { key: "today", label: "Today's Live Arena", icon: BarChart3 },
   { key: "bookings", label: "Bookings", icon: CalendarClock },
+  { key: "tournaments", label: "Tournaments", icon: Trophy },
   { key: "games", label: "Games", icon: Gamepad2 },
   { key: "food", label: "Food", icon: UtensilsCrossed },
-  { key: "tournaments", label: "Tournaments", icon: Trophy },
   { key: "orders", label: "Food orders", icon: ShoppingBag },
-  { key: "reviews", label: "Reviews", icon: MessageSquare },
-  { key: "photos", label: "Photos", icon: ImageIcon },
   { key: "rewards", label: "Rewards", icon: Gift },
-  { key: "users", label: "Users", icon: Users },
+  { key: "users", label: "Users / Staff", icon: Users },
+  { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "photos", label: "Photos", icon: ImageIcon },
+  { key: "reviews", label: "Reviews", icon: MessageSquare },
   { key: "crypto", label: "Crypto Tool", icon: KeyRound },
   { key: "database", label: "SQL Explorer", icon: Database },
   { key: "railway", label: "Railway Config", icon: Sliders },
@@ -3000,7 +3007,7 @@ const ADMIN_NAV: ShellNavItem[] = [
 
 function AdminPage() {
   const { user, phone, loading, isAdmin } = useAuth();
-  const [tab, setTab] = useState<TabKey | "home">("bookings");
+  const [tab, setTab] = useState<TabKey | "home">("today");
 
   if (loading) {
     return (
@@ -3045,6 +3052,7 @@ function AdminPage() {
   return (
     <AppShell nav={ADMIN_NAV} active={tab} onSelect={(k) => setTab(k as TabKey | "home")}>
       {tab === "home" && <LandingContent onFood={() => setTab("food")} />}
+      {tab === "today" && <TodayLiveArenaTab />}
       {tab === "bookings" && <BookingsTab />}
       {tab === "games" && <GamesTab />}
       {tab === "food" && <FoodTab />}
@@ -3058,6 +3066,7 @@ function AdminPage() {
       {tab === "crypto" && <CryptoTab />}
       {tab === "database" && <DatabaseTab />}
       {tab === "railway" && <RailwayTab />}
+      {tab === "notifications" && <NotificationsTab />}
     </AppShell>
   );
 }

@@ -97,6 +97,48 @@ export function TournamentsSection({ onGroupQuote }: { onGroupQuote?: () => void
           )}
         </div>
 
+        {/* Featured Tournament Card matching wireframe */}
+        <div className="mb-8 rounded-2xl border border-primary/50 bg-gradient-to-r from-card via-card to-primary/10 p-6 sm:p-8 card-glow backdrop-blur-md">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#25D366]" />
+                FEATURED TOURNAMENT
+              </div>
+              <h3 className="mt-3 font-display text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight text-foreground">
+                VALORANT CHAMPIONSHIP
+              </h3>
+              <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                5v5 Standard Tournament · Double Elimination Bracket · Live Broadcast
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Format:</span>
+                  <span className="font-display font-bold text-foreground">16 TEAMS</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Pool:</span>
+                  <span className="font-display font-bold text-primary text-base">₹25,000 PRIZE POOL</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span className="font-display font-bold text-foreground">28 SEP 2026</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <Link
+                to={user ? "/dashboard" : "/auth"}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-primary-foreground shadow-[0_6px_25px_var(--primary-shadow-glow)] transition hover:opacity-90 active:scale-95"
+              >
+                [ REGISTER NOW ] <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Tournaments Grid */}
         {tournaments === null ? (
           <div className="flex justify-center py-12">

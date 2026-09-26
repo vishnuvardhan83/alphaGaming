@@ -1,23 +1,25 @@
 // AlphaQ Gaming — Cryptographically Secure OTP Service
 // Generates, hashes, validates, and cleans up verification OTPs with brute-force protection
-// and resend cooldowns.
+// and resend cooldowns driven by database/admin settings and secure fallbacks.
 
 const crypto = require("crypto");
+const { getNotificationSettings } = require("./notifications/notificationSettings");
 
-const OTP_SECRET = process.env.JWT_SECRET || "alphaq-otp-secure-secret-key-123";
-const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
-const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
-const OTP_RESEND_COOLDOWN_SECONDS = Number(
+const OTP_SECRET = process.env.OTP_SECRET || process.env.JWT_SECRET || "alphaq-otp-secure-secret-key-123";
+const DEFAULT_OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
+const DEFAULT_OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+const DEFAULT_OTP_RESEND_COOLDOWN_SECONDS = Number(
   process.env.OTP_RESEND_COOLDOWN_SECONDS || 60,
 );
 
 /**
- * Generates a cryptographically secure 6-digit numeric OTP using crypto.randomInt.
+ * Generates a cryptographically secure numeric OTP using crypto.randomInt.
  * NEVER uses Math.random().
  */
 function generateOtp(length = 6) {
-  const min = Math.pow(10, length - 1);
-  const max = Math.pow(10, length);
+  const len = Math.max(4, Math.min(10, Number(length) || 6));
+  const min = Math.pow(10, len - 1);
+  const max = Math.pow(10, len);
   return crypto.randomInt(min, max).toString();
 }
 
@@ -51,10 +53,36 @@ function verifyOtpHash(email, inputOtp, storedHash) {
 /**
  * Creates or replaces an OTP record for an email and purpose.
  * Enforces resend cooldown so users cannot spam requests.
+ * Respects dynamic admin settings with safe fallbacks.
  */
-async function createOrReplaceOtp({ db, email, userId = null, purpose = "verify_email" }) {
+async function createOrReplaceOtp({
+  db,
+  email,
+  userId = null,
+  purpose = "verify_email",
+  length,
+  expiryMinutes,
+  resendCooldownSeconds,
+}) {
   const normEmail = String(email || "").trim().toLowerCase();
   const now = Date.now();
+
+  let activeLength = length;
+  let activeExpiry = expiryMinutes;
+  let activeCooldown = resendCooldownSeconds;
+
+  try {
+    const settings = await getNotificationSettings();
+    if (!activeLength) activeLength = settings.otp_length;
+    if (!activeExpiry) activeExpiry = settings.otp_expiry_minutes;
+    if (!activeCooldown) activeCooldown = settings.resend_cooldown_seconds;
+  } catch (err) {
+    console.warn("[OTP Service] Could not fetch settings, falling back to defaults:", err.message);
+  }
+
+  activeLength = Number(activeLength) || 6;
+  activeExpiry = Number(activeExpiry) || DEFAULT_OTP_EXPIRY_MINUTES;
+  activeCooldown = Number(activeCooldown) || DEFAULT_OTP_RESEND_COOLDOWN_SECONDS;
 
   // Check cooldown on the latest active OTP for this email & purpose
   const existing = await db.get(
@@ -64,8 +92,8 @@ async function createOrReplaceOtp({ db, email, userId = null, purpose = "verify_
 
   if (existing) {
     const elapsedSeconds = Math.floor((now - Number(existing.created_at)) / 1000);
-    if (elapsedSeconds < OTP_RESEND_COOLDOWN_SECONDS) {
-      const waitTime = OTP_RESEND_COOLDOWN_SECONDS - elapsedSeconds;
+    if (elapsedSeconds < activeCooldown) {
+      const waitTime = activeCooldown - elapsedSeconds;
       throw new Error(
         `Please wait ${waitTime} second${waitTime === 1 ? "" : "s"} before requesting a new code.`,
       );
@@ -78,9 +106,9 @@ async function createOrReplaceOtp({ db, email, userId = null, purpose = "verify_
     [normEmail, purpose],
   );
 
-  const otp = generateOtp(6);
+  const otp = generateOtp(activeLength);
   const otpHash = hashOtp(normEmail, otp);
-  const expiresAt = now + OTP_EXPIRY_MINUTES * 60 * 1000;
+  const expiresAt = now + activeExpiry * 60 * 1000;
 
   await db.run(
     `INSERT INTO email_verifications (user_id, email, otp_hash, purpose, expires_at, attempt_count, created_at)
@@ -91,17 +119,34 @@ async function createOrReplaceOtp({ db, email, userId = null, purpose = "verify_
   return {
     otp,
     expiresAt,
-    expiryMinutes: OTP_EXPIRY_MINUTES,
+    expiryMinutes: activeExpiry,
   };
 }
 
 /**
  * Validates the submitted OTP with expiration and brute-force attempt tracking.
+ * Respects dynamic max attempts configuration.
  */
-async function validateOtp({ db, email, otp, purpose = "verify_email", consume = true }) {
+async function validateOtp({
+  db,
+  email,
+  otp,
+  purpose = "verify_email",
+  consume = true,
+  maxAttempts,
+}) {
   const normEmail = String(email || "").trim().toLowerCase();
   const rawOtp = String(otp || "").trim();
   const now = Date.now();
+
+  let activeMaxAttempts = maxAttempts;
+  try {
+    const settings = await getNotificationSettings();
+    if (!activeMaxAttempts) activeMaxAttempts = settings.otp_max_attempts;
+  } catch (err) {
+    console.warn("[OTP Service] Could not fetch settings, falling back to defaults:", err.message);
+  }
+  activeMaxAttempts = Number(activeMaxAttempts) || DEFAULT_OTP_MAX_ATTEMPTS;
 
   const record = await db.get(
     "SELECT * FROM email_verifications WHERE LOWER(email) = ? AND purpose = ? ORDER BY id DESC LIMIT 1",
@@ -126,7 +171,7 @@ async function validateOtp({ db, email, otp, purpose = "verify_email", consume =
   }
 
   // Check if max attempts previously reached
-  if (record.attempt_count >= OTP_MAX_ATTEMPTS) {
+  if (record.attempt_count >= activeMaxAttempts) {
     await db.run("DELETE FROM email_verifications WHERE id = ?", [record.id]);
     return {
       valid: false,
@@ -140,7 +185,7 @@ async function validateOtp({ db, email, otp, purpose = "verify_email", consume =
 
   if (!isMatch) {
     const newAttempts = record.attempt_count + 1;
-    if (newAttempts >= OTP_MAX_ATTEMPTS) {
+    if (newAttempts >= activeMaxAttempts) {
       await db.run("DELETE FROM email_verifications WHERE id = ?", [record.id]);
       return {
         valid: false,
@@ -152,7 +197,7 @@ async function validateOtp({ db, email, otp, purpose = "verify_email", consume =
       newAttempts,
       record.id,
     ]);
-    const remaining = OTP_MAX_ATTEMPTS - newAttempts;
+    const remaining = activeMaxAttempts - newAttempts;
     return {
       valid: false,
       error: `Incorrect verification code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
@@ -210,7 +255,7 @@ module.exports = {
   validateOtp,
   cleanupExpiredOtps,
   startPeriodicCleanup,
-  OTP_EXPIRY_MINUTES,
-  OTP_MAX_ATTEMPTS,
-  OTP_RESEND_COOLDOWN_SECONDS,
+  DEFAULT_OTP_EXPIRY_MINUTES,
+  DEFAULT_OTP_MAX_ATTEMPTS,
+  DEFAULT_OTP_RESEND_COOLDOWN_SECONDS,
 };

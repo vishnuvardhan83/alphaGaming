@@ -53,8 +53,11 @@
 }
 
 @theme {
-  --font-display: "Oswald", "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Orbitron", "Rajdhani", "Oswald", "Chakra Petch", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Rajdhani", "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-orbitron: "Orbitron", sans-serif;
+  --font-rajdhani: "Rajdhani", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 }
 
 :root,
