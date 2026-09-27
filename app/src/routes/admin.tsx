@@ -1729,7 +1729,6 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   // — Setup counts —
   { key: "pcCount", label: "Gaming PCs (total)", hint: "Sets availability and booking counts.", placeholder: "10", type: "number", section: "Setup counts" },
   { key: "ps5Count", label: "PS5 setups (total)", hint: "Sets availability and booking counts.", placeholder: "3", type: "number" },
-  { key: "racingCount", label: "Racing Sim rigs (total)", hint: "Sets availability and booking counts for Racing Sim.", placeholder: "2", type: "number" },
   // — PC Pricing —
   { key: "pcPrice30m", label: "PC — 30-minute price (₹)", hint: "e.g. 50", placeholder: "50", type: "number", section: "PC Pricing" },
   { key: "pcPrice1h", label: "PC — Per hour price (₹)", placeholder: "100", type: "number" },
@@ -1738,11 +1737,7 @@ const SETTINGS_FIELDS: { key: string; label: string; hint?: string; placeholder?
   { key: "ps5Price30m", label: "PS5 — 30-minute price (₹)", placeholder: "60", type: "number", section: "PS5 Pricing" },
   { key: "ps5Price1h", label: "PS5 — Per hour price (₹)", placeholder: "120", type: "number" },
   { key: "ps5PriceDay", label: "PS5 — Full-day pass (₹)", placeholder: "600", type: "number" },
-  // — Racing Sim Pricing —
-  { key: "racingPrice30m", label: "Racing — 30-minute price (₹)", placeholder: "80", type: "number", section: "Racing Pricing" },
-  { key: "racingPrice1h", label: "Racing — Per hour price (₹)", placeholder: "150", type: "number" },
-  { key: "racingPriceDay", label: "Racing — Full-day pass (₹)", placeholder: "750", type: "number" },
-  // — Stats (\"Why AlphaQ\" section) —
+  // — Stats ("Why AlphaQ" section) —
   { key: "statSetups", label: "Stat: Pro setups count", placeholder: "13", section: "Stats" },
   { key: "statRefresh", label: "Stat: Refresh rate", placeholder: "240Hz" },
   { key: "statPing", label: "Stat: Local ping", placeholder: "<20ms" },
@@ -2215,17 +2210,6 @@ function SettingsTab() {
                       />
                       <p className="mt-1 text-xs text-muted-foreground">Controls total console stations available.</p>
                     </div>
-                    <div>
-                      <label className={labelCls}>Racing Sim Rigs (total count)</label>
-                      <input
-                        type="number"
-                        className={inputCls}
-                        value={values.racingCount ?? ""}
-                        onChange={(e) => set("racingCount", e.target.value)}
-                        placeholder="2"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">Controls total pro direct-drive racing simulators.</p>
-                    </div>
                   </div>
                 </div>
 
@@ -2300,44 +2284,6 @@ function SettingsTab() {
                         value={values.ps5PriceDay ?? ""}
                         onChange={(e) => set("ps5PriceDay", e.target.value)}
                         placeholder="600"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1 mb-3">
-                    Racing Sim Hourly Pricing Tiers
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className={labelCls}>Racing — 30-min price (₹)</label>
-                      <input
-                        type="number"
-                        className={inputCls}
-                        value={values.racingPrice30m ?? ""}
-                        onChange={(e) => set("racingPrice30m", e.target.value)}
-                        placeholder="80"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Racing — 1-hour price (₹)</label>
-                      <input
-                        type="number"
-                        className={inputCls}
-                        value={values.racingPrice1h ?? ""}
-                        onChange={(e) => set("racingPrice1h", e.target.value)}
-                        placeholder="150"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Racing — Full-day pass (₹)</label>
-                      <input
-                        type="number"
-                        className={inputCls}
-                        value={values.racingPriceDay ?? ""}
-                        onChange={(e) => set("racingPriceDay", e.target.value)}
-                        placeholder="750"
                       />
                     </div>
                   </div>

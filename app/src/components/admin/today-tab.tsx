@@ -57,10 +57,6 @@ const INITIAL_STATIONS: Station[] = [
   { id: "PS5-01", type: "ps5", status: "available" },
   { id: "PS5-02", type: "ps5", status: "available" },
   { id: "PS5-03", type: "ps5", status: "available" },
-
-  // 2 Racing Rigs
-  { id: "RACING-01", type: "racing", status: "available" },
-  { id: "RACING-02", type: "racing", status: "available" },
 ];
 
 const STATUS_CONFIG: Record<
@@ -99,7 +95,7 @@ const STATUS_CONFIG: Record<
 
 export function TodayLiveArenaTab() {
   const [stations, setStations] = useState<Station[]>(INITIAL_STATIONS);
-  const [stationTypeFilter, setStationTypeFilter] = useState<"all" | "pc" | "ps5" | "racing">("all");
+  const [stationTypeFilter, setStationTypeFilter] = useState<"all" | "pc" | "ps5">("all");
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -359,7 +355,7 @@ export function TodayLiveArenaTab() {
 
             {/* Filter Pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              {(["all", "pc", "ps5", "racing"] as const).map((t) => (
+              {(["all", "pc", "ps5"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setStationTypeFilter(t)}
@@ -369,7 +365,7 @@ export function TodayLiveArenaTab() {
                       : "border border-border bg-card/60 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "all" ? "All (15)" : t === "pc" ? "PCs (10)" : t === "ps5" ? "PS5s (3)" : "Racing (2)"}
+                  {t === "all" ? "All (13)" : t === "pc" ? "PCs (10)" : "PS5s (3)"}
                 </button>
               ))}
             </div>
