@@ -113,7 +113,29 @@ function makeSqlite() {
   const Database = require("better-sqlite3");
   const DATA_DIR = path.join(__dirname, "data");
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const file = process.env.SQLITE_PATH || path.join(DATA_DIR, "alphaq.db");
+
+  let file;
+  if (process.env.SQLITE_PATH) {
+    let p = process.env.SQLITE_PATH.trim();
+    if (!path.isAbsolute(p)) {
+      if (p.startsWith("server/") || p.startsWith("./server/")) {
+        p = p.replace(/^\.?\/?server\//, "");
+        file = path.join(__dirname, p);
+      } else {
+        file = path.resolve(__dirname, p);
+      }
+    } else {
+      file = p;
+    }
+  } else {
+    file = path.join(DATA_DIR, "alphaq.db");
+  }
+
+  const targetDir = path.dirname(file);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
   const sdb = new Database(file);
   sdb.pragma("journal_mode = WAL");
   return {
