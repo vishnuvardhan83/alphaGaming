@@ -263,6 +263,10 @@ app.post(
   }),
 );
 
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
+});
+
 app.get("/api/auth/me", auth(), (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
