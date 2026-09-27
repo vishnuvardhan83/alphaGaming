@@ -42,24 +42,24 @@ interface Station {
 
 const INITIAL_STATIONS: Station[] = [
   // 10 PCs
-  { id: "PC-01", type: "pc", status: "playing", game: "Valorant", customer: "Rahul M.", elapsedMinutes: 45, totalMinutes: 120 },
-  { id: "PC-02", type: "pc", status: "playing", game: "CS2", customer: "Devansh K.", elapsedMinutes: 70, totalMinutes: 120 },
-  { id: "PC-03", type: "pc", status: "reserved", game: "Apex Legends", customer: "Arjun S.", elapsedMinutes: 0, totalMinutes: 60 },
+  { id: "PC-01", type: "pc", status: "available" },
+  { id: "PC-02", type: "pc", status: "available" },
+  { id: "PC-03", type: "pc", status: "available" },
   { id: "PC-04", type: "pc", status: "available" },
-  { id: "PC-05", type: "pc", status: "maintenance" },
-  { id: "PC-06", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 1", elapsedMinutes: 30, totalMinutes: 180 },
-  { id: "PC-07", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 2", elapsedMinutes: 30, totalMinutes: 180 },
+  { id: "PC-05", type: "pc", status: "available" },
+  { id: "PC-06", type: "pc", status: "available" },
+  { id: "PC-07", type: "pc", status: "available" },
   { id: "PC-08", type: "pc", status: "available" },
   { id: "PC-09", type: "pc", status: "available" },
-  { id: "PC-10", type: "pc", status: "playing", game: "Valorant", customer: "Team Alpha 5", elapsedMinutes: 30, totalMinutes: 180 },
+  { id: "PC-10", type: "pc", status: "available" },
 
   // 3 PS5s
-  { id: "PS5-01", type: "ps5", status: "playing", game: "FC 26", customer: "Squad 4 (Amit + 3)", elapsedMinutes: 25, totalMinutes: 60 },
-  { id: "PS5-02", type: "ps5", status: "playing", game: "Mortal Kombat 1", customer: "Rohan & Siddharth", elapsedMinutes: 40, totalMinutes: 120 },
-  { id: "PS5-03", type: "ps5", status: "reserved", game: "WWE 2K25", customer: "Kunal J.", elapsedMinutes: 0, totalMinutes: 60 },
+  { id: "PS5-01", type: "ps5", status: "available" },
+  { id: "PS5-02", type: "ps5", status: "available" },
+  { id: "PS5-03", type: "ps5", status: "available" },
 
   // 2 Racing Rigs
-  { id: "RACING-01", type: "racing", status: "playing", game: "F1 25", customer: "Kabir V.", elapsedMinutes: 35, totalMinutes: 60 },
+  { id: "RACING-01", type: "racing", status: "available" },
   { id: "RACING-02", type: "racing", status: "available" },
 ];
 
@@ -123,22 +123,75 @@ export function TodayLiveArenaTab() {
     reloadBookings();
   }, []);
 
+  // Dynamically synchronize station statuses with real database bookings for today
+  useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const activeToday = bookings.filter(
+      (b) => b.date === todayStr && b.status !== "cancelled" && b.status !== "rejected"
+    );
+
+    let pcIdx = 0;
+    let ps5Idx = 0;
+    let racingIdx = 0;
+
+    const pcBookings = activeToday.filter((b) => b.platform === "pc");
+    const ps5Bookings = activeToday.filter((b) => b.platform === "ps5");
+    const racingBookings = activeToday.filter((b) => b.platform === "racing");
+
+    setStations((prev) =>
+      prev.map((station) => {
+        let matchingBooking: Booking | undefined;
+        if (station.type === "pc" && pcIdx < pcBookings.length) {
+          matchingBooking = pcBookings[pcIdx++];
+        } else if (station.type === "ps5" && ps5Idx < ps5Bookings.length) {
+          matchingBooking = ps5Bookings[ps5Idx++];
+        } else if (station.type === "racing" && racingIdx < racingBookings.length) {
+          matchingBooking = racingBookings[racingIdx++];
+        }
+
+        if (matchingBooking) {
+          const isPlaying = matchingBooking.status === "confirmed" || matchingBooking.status === "completed";
+          return {
+            ...station,
+            status: isPlaying ? "playing" : "reserved",
+            customer: matchingBooking.phone ? `+${matchingBooking.phone}` : "Online Gamer",
+            game: `${matchingBooking.platform.toUpperCase()} Session (${matchingBooking.durationLabel})`,
+            elapsedMinutes: isPlaying ? 15 : 0,
+            totalMinutes: matchingBooking.durationLabel.includes("1h") ? 60 : matchingBooking.durationLabel.includes("30m") ? 30 : 120,
+          };
+        }
+
+        // Preserve manual maintenance status, otherwise reset to available
+        if (station.status !== "maintenance") {
+          return {
+            ...station,
+            status: "available",
+            customer: undefined,
+            game: undefined,
+            elapsedMinutes: undefined,
+            totalMinutes: undefined,
+          };
+        }
+        return station;
+      })
+    );
+  }, [bookings]);
+
   // Compute live station counts
   const playingCount = stations.filter((s) => s.status === "playing").length;
   const reservedCount = stations.filter((s) => s.status === "reserved").length;
   const availableCount = stations.filter((s) => s.status === "available").length;
   const maintenanceCount = stations.filter((s) => s.status === "maintenance").length;
 
-  // Real database dynamic KPI calculations
+  // Real database dynamic KPI calculations strictly for today
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayBookings = bookings.filter((b) => b.date === todayStr);
-  const effectiveBookings = todayBookings.length > 0 ? todayBookings : bookings;
 
-  const totalBookingsToday = todayBookings.length > 0 ? todayBookings.length : bookings.length;
-  const checkedInToday = effectiveBookings.filter(
+  const totalBookingsToday = todayBookings.length;
+  const checkedInToday = todayBookings.filter(
     (b) => b.status === "confirmed" || b.status === "completed"
   ).length;
-  const upcomingToday = effectiveBookings.filter(
+  const upcomingToday = todayBookings.filter(
     (b) => b.status === "pending" || b.status === "awaiting_payment"
   ).length;
 
